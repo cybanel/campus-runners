@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusRunners - Messages</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-frame">
+      <div
+        class="screen active home-screen has-bottom-nav"
+        id="screen-messages"
+      >
+        <!-- Chat header (only when a runner has accepted) -->
+        <div class="chat-header" id="chat-header" hidden>
+          <div class="runner-avatar" id="chat-avatar"></div>
+          <div class="runner-info">
+            <div class="runner-name" id="chat-name"></div>
+            <div class="runner-sub" id="chat-sub"></div>
+          </div>
+        </div>
+        <div class="chat-safety" id="chat-safety" hidden>
+          🔒 Never share your ID number or cafeteria load in chat.
+        </div>
+
+        <div class="chat-thread" id="chat-thread"></div>
+
+        <div class="chat-composer">
+          <input
+            class="chat-input"
+            id="chat-input"
+            type="text"
+            placeholder="Message your runner…"
+            maxlength="500"
+            autocomplete="off"
+            disabled
+          />
+          <button
+            class="chat-send"
+            id="chat-send"
+            type="button"
+            aria-label="Send message"
+            disabled
+          >
+            &#10148;
+          </button>
+        </div>
+
+        <div class="bottom-nav">
+          <a class="nav-item" href="home.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 11.5L12 4l9 7.5" />
+                <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+              </svg>
+            </div>
+            <div class="nav-label">Home</div>
+          </a>
+
+          <a class="nav-item" href="activity.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 3a6 6 0 0 0-6 6c0 4-2 5-2 6h16c0-1-2-2-2-6a6 6 0 0 0-6-6z"
+                />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+              </svg>
+            </div>
+            <div class="nav-label">Activity</div>
+          </a>
+
+          <a class="nav-item nav-item-track" href="track.html">
+            <div class="nav-icon">🏃</div>
+            <div class="nav-label">Track</div>
+          </a>
+
+          <a class="nav-item current" href="messages.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                />
+              </svg>
+            </div>
+            <div class="nav-label">Messages</div>
+          </a>
+
+          <div class="nav-item">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
+            <div class="nav-label">Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script>
+      var Orders = CampusRunnersOrder;
+
+      var lastMessageCount = -1;
+
+      function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function timeLabel(ms) {
+        return new Date(ms).toLocaleTimeString("en-PH", {
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      }
+
+      function initials(name) {
+        return name
+          .split(" ")
+          .map(function (w) {
+            return w.charAt(0);
+          })
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
+      }
+
+      function bubble(msg) {
+        var b = el("div", "chat-msg " + msg.from, msg.text);
+        b.appendChild(el("div", "chat-time", timeLabel(msg.at)));
+        return b;
+      }
+
+      // Runner's photos of what's available. Nothing to tap here: the customer
+      // tells the runner what they want in the chat.
+      function photosMessage(msg) {
+        var wrap = el("div", "chat-msg runner wide");
+        wrap.appendChild(el("div", "", msg.text));
+
+        var grid = el("div", "photo-grid");
+        msg.options.forEach(function (opt) {
+          var tile = el("div", "photo-tile");
+          tile.appendChild(el("div", "photo-emoji", opt.emoji));
+          tile.appendChild(el("div", "photo-name", opt.name));
+          tile.appendChild(el("div", "photo-price", "\u20B1" + opt.price));
+          grid.appendChild(tile);
+        });
+        wrap.appendChild(grid);
+        wrap.appendChild(
+          el("div", "photo-hint", "Sample photos for the prototype"),
+        );
+
+        wrap.appendChild(el("div", "chat-time", timeLabel(msg.at)));
+        return wrap;
+      }
+
+      // Runner asks the customer to confirm the order. "Looks good" is just a
+      // record: the real agreement happens in the chat above it.
+      function confirmMessage(msg, order) {
+        var wrap = el("div", "chat-msg runner wide");
+        wrap.appendChild(el("div", "", msg.text));
+        wrap.appendChild(el("div", "confirm-quote", msg.summary));
+
+        if (msg.result === "confirmed") {
+          wrap.appendChild(
+            el(
+              "div",
+              "amount-done",
+              "\u2713 You confirmed this at " + timeLabel(msg.confirmedAt),
+            ),
+          );
+        } else {
+          var ok = el("button", "chat-action-btn", "Looks good");
+          ok.type = "button";
+          ok.addEventListener("click", function () {
+            Orders.confirmItems();
+          });
+          wrap.appendChild(ok);
+          wrap.appendChild(
+            el(
+              "div",
+              "photo-hint",
+              "Want to change something? Message your runner first.",
+            ),
+          );
+        }
+
+        wrap.appendChild(el("div", "chat-time", timeLabel(msg.at)));
+        return wrap;
+      }
+
+      // Runner asks to spend more than the budget: customer approves or declines.
+      function overBudgetMessage(msg) {
+        var wrap = el("div", "chat-msg runner wide");
+        wrap.appendChild(el("div", "", msg.text));
+        wrap.appendChild(el("div", "amount-value", "+\u20B1" + msg.extra));
+        wrap.appendChild(
+          el("div", "amount-note", "New spending limit: \u20B1" + msg.newLimit),
+        );
+
+        if (msg.result === "approved") {
+          wrap.appendChild(
+            el("div", "amount-done", "\u2713 You approved this"),
+          );
+        } else if (msg.result === "declined") {
+          wrap.appendChild(el("div", "amount-declined", "You declined this"));
+        } else {
+          var row = el("div", "chat-action-row");
+
+          var yes = el(
+            "button",
+            "chat-action-btn",
+            "Approve \u20B1" + msg.extra,
+          );
+          yes.type = "button";
+          yes.addEventListener("click", function () {
+            Orders.respondOverBudget(true);
+          });
+          row.appendChild(yes);
+
+          var no = el(
+            "button",
+            "chat-action-btn secondary",
+            "No, stay in budget",
+          );
+          no.type = "button";
+          no.addEventListener("click", function () {
+            Orders.respondOverBudget(false);
+          });
+          row.appendChild(no);
+
+          wrap.appendChild(row);
+        }
+
+        wrap.appendChild(el("div", "chat-time", timeLabel(msg.at)));
+        return wrap;
+      }
+
+      // Runner's receipt: proof of purchase and the amount to pay.
+      function receiptMessage(msg) {
+        var wrap = el("div", "chat-msg runner wide");
+        wrap.appendChild(el("div", "", msg.text));
+
+        var tile = el("div", "receipt-tile");
+        tile.appendChild(el("div", "photo-emoji", "\uD83E\uDDFE"));
+        tile.appendChild(el("div", "photo-name", "Receipt photo"));
+        tile.appendChild(el("div", "photo-price", "Sample for the prototype"));
+        wrap.appendChild(tile);
+
+        var line1 = el("div", "receipt-line");
+        line1.appendChild(el("span", "", "Receipt total"));
+        line1.appendChild(el("strong", "", "\u20B1" + msg.receiptTotal));
+        wrap.appendChild(line1);
+
+        var line2 = el("div", "receipt-line");
+        line2.appendChild(el("span", "", "Delivery fee"));
+        line2.appendChild(el("strong", "", "\u20B1" + msg.fee));
+        wrap.appendChild(line2);
+
+        wrap.appendChild(el("div", "amount-value", "\u20B1" + msg.total));
+        wrap.appendChild(
+          el(
+            "div",
+            "amount-note",
+            "Amount to pay in cash after delivery. Prepare exact cash if you can.",
+          ),
+        );
+
+        wrap.appendChild(el("div", "chat-time", timeLabel(msg.at)));
+        return wrap;
+      }
+
+      function setComposer(enabled) {
+        document.getElementById("chat-input").disabled = !enabled;
+        document.getElementById("chat-send").disabled = !enabled;
+      }
+
+      function render() {
+        var order = Orders.get();
+        var thread = document.getElementById("chat-thread");
+        var header = document.getElementById("chat-header");
+        var safety = document.getElementById("chat-safety");
+        thread.innerHTML = "";
+
+        // No chat until a runner has accepted.
+        if (!order || order.status === "searching" || !order.runner) {
+          header.hidden = true;
+          safety.hidden = true;
+          setComposer(false);
+          lastMessageCount = -1;
+
+          var empty = el("div", "chat-empty");
+          if (order) {
+            empty.appendChild(el("strong", "", "Waiting for a runner"));
+            empty.appendChild(
+              document.createTextNode(
+                "Chat opens as soon as a runner accepts your order.",
+              ),
+            );
+          } else {
+            empty.appendChild(el("strong", "", "No messages yet"));
+            empty.appendChild(
+              document.createTextNode(
+                "When a runner accepts your order, you can chat with them here.",
+              ),
+            );
+          }
+          thread.appendChild(empty);
+          return;
+        }
+
+        header.hidden = false;
+        // The ID reminder only applies to cafeteria orders (Kubo and the store are cash only).
+        safety.hidden = order.type && order.type !== "cafeteria";
+        setComposer(true);
+        document.getElementById("chat-avatar").textContent = initials(
+          order.runner.name,
+        );
+        document.getElementById("chat-name").textContent = order.runner.name;
+        document.getElementById("chat-sub").textContent =
+          Orders.place(order).label + " order \u00B7 " + (order.dropoff || "");
+
+        var chat = order.chat || [];
+        chat.forEach(function (msg) {
+          if (msg.from === "system") {
+            thread.appendChild(el("div", "chat-system", msg.text));
+          } else if (msg.type === "photos") {
+            thread.appendChild(photosMessage(msg));
+          } else if (msg.type === "confirm") {
+            thread.appendChild(confirmMessage(msg, order));
+          } else if (msg.type === "overbudget") {
+            thread.appendChild(overBudgetMessage(msg));
+          } else if (msg.type === "receipt") {
+            thread.appendChild(receiptMessage(msg));
+          } else {
+            thread.appendChild(bubble(msg));
+          }
+        });
+
+        // Jump to the newest message only when something new arrived.
+        if (chat.length !== lastMessageCount) {
+          thread.scrollTop = thread.scrollHeight;
+          lastMessageCount = chat.length;
+        }
+      }
+
+      function sendTyped() {
+        var input = document.getElementById("chat-input");
+        if (Orders.sendCustomerMessage(input.value)) input.value = "";
+      }
+
+      document.getElementById("chat-send").addEventListener("click", sendTyped);
+      document
+        .getElementById("chat-input")
+        .addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            sendTyped();
+          }
+        });
+
+      Orders.subscribe(render);
+      render();
+      CampusRunnersDemo.mount();
+    </script>
+  </body>
+</html>

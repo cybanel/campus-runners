@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusRunners - Order Summary</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-frame">
+      <!-- Order summary screen (cafeteria, Kubo and store) -->
+      <div
+        class="screen active signup-screen has-bottom-nav"
+        id="screen-summary"
+      >
+        <div class="screen-scroll">
+          <button class="back-btn" onclick="editOrder()">&#8592;</button>
+
+          <div class="request-heading">Order Summary</div>
+
+          <!-- Pickup / drop-off recap -->
+          <div class="location-card">
+            <div class="location-row">
+              <div class="location-timeline">
+                <div class="location-dot filled"></div>
+                <div class="location-line"></div>
+                <div class="location-dot filled"></div>
+              </div>
+              <div class="location-fields">
+                <div class="location-field">
+                  <div class="location-field-label">Pickup point</div>
+                  <div class="location-value-fixed" id="summary-pickup">
+                    &mdash;
+                  </div>
+                </div>
+                <div class="location-field">
+                  <div class="location-field-label">Drop-off point</div>
+                  <div class="location-value-fixed" id="summary-dropoff">
+                    &mdash;
+                  </div>
+                  <div class="field-hint">
+                    Meet your runner outside. Classrooms aren't allowed.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- What the customer asked for, shown exactly as typed -->
+          <div class="request-section-label">Your request</div>
+          <div class="info-card">
+            <div class="note-text" id="summary-message"></div>
+          </div>
+
+          <!-- Total -->
+          <div class="total-card">
+            <div class="total-row">
+              <div class="total-label">You'll pay up to</div>
+              <div class="total-value" id="summary-total-value">₱0</div>
+            </div>
+
+            <div class="total-lines">
+              <div class="total-line">
+                <span>Budget</span><span id="sum-line-budget">₱0</span>
+              </div>
+              <div class="total-line">
+                <span>Delivery fee</span><span id="sum-line-fee">₱0</span>
+              </div>
+            </div>
+
+            <div class="total-note">
+              You pay the actual receipt total (never more than your budget
+              unless you approve it) plus the delivery fee.
+            </div>
+          </div>
+
+          <!-- Payment explanation -->
+          <div class="info-card">
+            <div class="info-card-header">How payment works</div>
+            <div class="info-card-text">
+              Your runner pays first, using their own money. After delivery,
+              you pay them back in <strong>cash</strong>: the receipt total
+              plus the delivery fee.
+            </div>
+            <div class="info-card-text">
+              Your runner sends a photo of the receipt as proof. If something
+              costs more than your budget, they'll ask for your OK first.
+            </div>
+            <div class="info-card-text">
+              💵 Prepare exact cash if you can. Want to pay another way? Agree
+              on it with your runner in chat. Payments are not made inside the
+              app.
+            </div>
+            <div class="info-card-text" id="id-reminder" hidden>
+              🔒 <strong>Never share your ID number or cafeteria load</strong>
+              with your runner.
+            </div>
+          </div>
+
+          <!-- What happens next -->
+          <div class="info-card">
+            <div class="info-card-header">What happens next</div>
+            <ol class="next-steps">
+              <li class="next-step">
+                <span class="next-step-num">1</span>
+                <span>A runner accepts your request.</span>
+              </li>
+              <li class="next-step">
+                <span class="next-step-num">2</span>
+                <span
+                  >In Messages, they send photos of what they found and you
+                  confirm.</span
+                >
+              </li>
+              <li class="next-step">
+                <span class="next-step-num">3</span>
+                <span
+                  >They buy your order and send you the receipt.</span
+                >
+              </li>
+              <li class="next-step">
+                <span class="next-step-num">4</span>
+                <span
+                  >They deliver it, and you pay them in cash.</span
+                >
+              </li>
+            </ol>
+          </div>
+
+          <button
+            class="checkout-btn"
+            id="place-order-btn"
+            onclick="handleCheckout()"
+          >
+            Place order
+          </button>
+        </div>
+
+        <div class="bottom-nav">
+          <a class="nav-item" href="home.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 11.5L12 4l9 7.5" />
+                <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+              </svg>
+            </div>
+            <div class="nav-label">Home</div>
+          </a>
+
+          <a class="nav-item" href="activity.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 3a6 6 0 0 0-6 6c0 4-2 5-2 6h16c0-1-2-2-2-6a6 6 0 0 0-6-6z"
+                />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+              </svg>
+            </div>
+            <div class="nav-label">Activity</div>
+          </a>
+
+          <a class="nav-item nav-item-track" href="track.html">
+            <div class="nav-icon">🏃</div>
+            <div class="nav-label">Track</div>
+          </a>
+
+          <a class="nav-item" href="messages.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                />
+              </svg>
+            </div>
+            <div class="nav-label">Messages</div>
+          </a>
+
+          <div class="nav-item">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
+            <div class="nav-label">Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script>
+      var DRAFT_KEY = "cr_errand_order";
+
+      function loadDraft() {
+        var raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function peso(n) {
+        return "₱" + n;
+      }
+
+      // Back arrow: tell the request page to refill itself with this draft
+      // so the customer doesn't have to type everything again.
+      function editOrder() {
+        var draft = loadDraft();
+        var type = draft && draft.type ? draft.type : "cafeteria";
+        try {
+          sessionStorage.setItem("cr_restore_errand", "1");
+        } catch (e) {}
+        window.location.href = "errands-request.html?type=" + encodeURIComponent(type);
+      }
+
+      function renderDraft(draft) {
+        var place = CampusRunnersOrder.PLACES[draft.type] || CampusRunnersOrder.PLACES.cafeteria;
+        var budget = draft.budget || 0;
+        var fee = draft.deliveryFee || 0;
+
+        document.getElementById("summary-pickup").textContent =
+          place.emoji + " " + place.label;
+        document.getElementById("summary-dropoff").textContent =
+          draft.dropoff || "—";
+
+        // textContent keeps anything the customer typed from being read as HTML.
+        document.getElementById("summary-message").textContent =
+          draft.message || "";
+
+        document.getElementById("sum-line-budget").textContent = peso(budget);
+        document.getElementById("sum-line-fee").textContent = peso(fee);
+        document.getElementById("summary-total-value").textContent = peso(budget + fee);
+
+        // The ID reminder only applies to the cafeteria (Kubo and the store
+        // are cash only).
+        document.getElementById("id-reminder").hidden = draft.type !== "cafeteria";
+      }
+
+      function handleCheckout() {
+        var draft = loadDraft();
+        if (!draft || !draft.dropoff || !draft.budget || !draft.message) {
+          showToast("Your order details are missing. Please start again.", {
+            type: "error",
+          });
+          return;
+        }
+
+        // One order at a time.
+        if (CampusRunnersOrder.get()) {
+          showToast("You already have an order in progress.", {
+            type: "error",
+          });
+          return;
+        }
+
+        // Stop double-taps from placing the order twice.
+        var btn = document.getElementById("place-order-btn");
+        btn.disabled = true;
+
+        CampusRunnersOrder.create(draft);
+
+        showToast("Order placed! We're finding you a Runner.");
+        localStorage.removeItem(DRAFT_KEY);
+        try {
+          sessionStorage.removeItem("cr_restore_errand");
+        } catch (e) {}
+
+        setTimeout(function () {
+          window.location.href = "home.html";
+        }, 1600);
+      }
+
+      (function init() {
+        var draft = loadDraft();
+        if (!draft) {
+          showToast("No order found. Please fill in your request again.", {
+            type: "error",
+          });
+          document.getElementById("summary-message").textContent =
+            "No order details found.";
+          document.getElementById("place-order-btn").disabled = true;
+          return;
+        }
+        renderDraft(draft);
+      })();
+    </script>
+  </body>
+</html>

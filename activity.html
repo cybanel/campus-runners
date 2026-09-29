@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusRunners - Activity</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-frame">
+      <div
+        class="screen active home-screen has-bottom-nav"
+        id="screen-activity"
+      >
+        <div class="screen-scroll">
+          <div class="home-greeting">Activity</div>
+
+          <div class="request-section-label">In progress</div>
+          <div id="active-list"></div>
+
+          <div class="request-section-label">Past orders</div>
+          <div id="past-list"></div>
+        </div>
+
+        <div class="bottom-nav">
+          <a class="nav-item" href="home.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 11.5L12 4l9 7.5" />
+                <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+              </svg>
+            </div>
+            <div class="nav-label">Home</div>
+          </a>
+
+          <a class="nav-item current" href="activity.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 3a6 6 0 0 0-6 6c0 4-2 5-2 6h16c0-1-2-2-2-6a6 6 0 0 0-6-6z"
+                />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+              </svg>
+            </div>
+            <div class="nav-label">Activity</div>
+          </a>
+
+          <a class="nav-item nav-item-track" href="track.html">
+            <div class="nav-icon">🏃</div>
+            <div class="nav-label">Track</div>
+          </a>
+
+          <a class="nav-item" href="messages.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                />
+              </svg>
+            </div>
+            <div class="nav-label">Messages</div>
+          </a>
+
+          <div class="nav-item">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
+            <div class="nav-label">Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script>
+      function formatWhen(ms) {
+        return new Date(ms).toLocaleString("en-PH", {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      }
+
+      function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      // Builds one order card. Uses textContent so nothing typed by a user
+      // is ever treated as HTML.
+      function buildCard(order, isActive) {
+        var card = el(isActive ? "a" : "div", "activity-card");
+        if (isActive) card.setAttribute("href", "track.html");
+
+        var top = el("div", "activity-card-top");
+        top.appendChild(
+          el(
+            "div",
+            "activity-card-title",
+            CampusRunnersOrder.place(order).label + " order",
+          ),
+        );
+
+        var pillClass = "pill-active";
+        if (order.status === "delivered") pillClass = "pill-done";
+        if (order.status === "cancelled") pillClass = "pill-cancelled";
+        top.appendChild(
+          el(
+            "span",
+            "status-pill " + pillClass,
+            CampusRunnersOrder.STATUS_LABELS[order.status],
+          ),
+        );
+        card.appendChild(top);
+
+        card.appendChild(
+          el(
+            "div",
+            "activity-card-route",
+            CampusRunnersOrder.place(order).label +
+              " \u2192 " +
+              (order.dropoff || "—"),
+          ),
+        );
+        card.appendChild(
+          el("div", "activity-card-summary", order.summary || "Custom order"),
+        );
+
+        var foot = el("div", "activity-card-foot");
+        // Delivered orders show what was actually paid; everything else shows
+        // the most the customer could pay (budget + delivery fee).
+        var total = el("span");
+        var paid = order.status === "delivered" && order.paidTotal != null;
+        total.appendChild(document.createTextNode(paid ? "Paid " : "Up to "));
+        total.appendChild(
+          el("strong", "", "₱" + (paid ? order.paidTotal : order.total || 0)),
+        );
+        foot.appendChild(total);
+        foot.appendChild(
+          el("span", "", formatWhen(order.completedAt || order.createdAt)),
+        );
+        card.appendChild(foot);
+
+        return card;
+      }
+
+      function renderActivity() {
+        var active = CampusRunnersOrder.get();
+        var past = CampusRunnersOrder.getPast();
+
+        var activeList = document.getElementById("active-list");
+        activeList.innerHTML = "";
+        if (active) {
+          activeList.appendChild(buildCard(active, true));
+        } else {
+          activeList.appendChild(
+            el(
+              "div",
+              "activity-empty",
+              "No orders in progress. Start one from Errands and delivery on the Home tab.",
+            ),
+          );
+        }
+
+        var pastList = document.getElementById("past-list");
+        pastList.innerHTML = "";
+        if (past.length) {
+          past.forEach(function (order) {
+            pastList.appendChild(buildCard(order, false));
+          });
+        } else {
+          pastList.appendChild(
+            el(
+              "div",
+              "activity-empty",
+              "Your finished orders will show up here.",
+            ),
+          );
+        }
+      }
+
+      CampusRunnersOrder.subscribe(renderActivity);
+      renderActivity();
+      CampusRunnersDemo.mount();
+    </script>
+  </body>
+</html>

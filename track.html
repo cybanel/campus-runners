@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusRunners - Track</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-frame">
+      <div class="screen active home-screen has-bottom-nav" id="screen-track">
+        <div class="screen-scroll">
+          <div class="home-greeting">Track your order</div>
+
+          <!-- No active order -->
+          <div id="track-empty" hidden>
+            <div class="activity-empty">
+              You don't have an order to track right now. Orders you place will
+              show up here.
+            </div>
+            <a class="checkout-btn as-link" href="errands.html"
+              >Start an errand</a
+            >
+          </div>
+
+          <!-- Waiting for a runner: no map yet -->
+          <div id="track-searching" hidden>
+            <div class="timeline-card">
+              <div class="runner-name" id="search-title">
+                Finding you a runner…
+              </div>
+              <div class="runner-sub" id="search-sub"></div>
+              <button
+                type="button"
+                class="outline-btn danger"
+                id="search-cancel"
+              >
+                Cancel order
+              </button>
+            </div>
+            <div class="track-note">
+              The map and chat open as soon as a runner accepts your order.
+            </div>
+          </div>
+
+          <!-- A runner has accepted -->
+          <div id="track-main" hidden>
+            <div class="map-card">
+              <div class="map-badge">Prototype map</div>
+              <svg
+                class="map-svg"
+                viewBox="0 0 300 200"
+                role="img"
+                aria-label="Map showing where your runner is (prototype)"
+              >
+                <rect width="300" height="200" fill="#e9edf8" />
+                <!-- city blocks -->
+                <rect
+                  x="10"
+                  y="10"
+                  width="60"
+                  height="35"
+                  rx="4"
+                  fill="#d5dbf0"
+                />
+                <rect
+                  x="85"
+                  y="10"
+                  width="50"
+                  height="35"
+                  rx="4"
+                  fill="#dfe8dc"
+                />
+                <rect
+                  x="165"
+                  y="10"
+                  width="55"
+                  height="35"
+                  rx="4"
+                  fill="#d5dbf0"
+                />
+                <rect
+                  x="235"
+                  y="10"
+                  width="55"
+                  height="35"
+                  rx="4"
+                  fill="#d5dbf0"
+                />
+                <rect
+                  x="10"
+                  y="115"
+                  width="60"
+                  height="30"
+                  rx="4"
+                  fill="#dfe8dc"
+                />
+                <rect
+                  x="85"
+                  y="115"
+                  width="50"
+                  height="30"
+                  rx="4"
+                  fill="#d5dbf0"
+                />
+                <rect
+                  x="165"
+                  y="160"
+                  width="55"
+                  height="30"
+                  rx="4"
+                  fill="#d5dbf0"
+                />
+                <rect
+                  x="235"
+                  y="60"
+                  width="55"
+                  height="30"
+                  rx="4"
+                  fill="#dfe8dc"
+                />
+                <!-- roads -->
+                <path
+                  d="M0 55 H300 M0 105 H300 M0 152 H300 M75 0 V200 M150 0 V200 M225 0 V200"
+                  stroke="#ffffff"
+                  stroke-width="7"
+                  fill="none"
+                />
+                <!-- route: start -> cafeteria -> drop-off -->
+                <polyline
+                  points="50,165 95,70 245,140"
+                  fill="none"
+                  stroke="#29308d"
+                  stroke-width="3"
+                  stroke-dasharray="6 6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <!-- cafeteria pin -->
+                <circle cx="95" cy="70" r="13" fill="#29308d" />
+                <text
+                  x="95"
+                  y="75"
+                  font-size="13"
+                  text-anchor="middle"
+                  id="map-pickup-emoji"
+                >
+                  🍛
+                </text>
+                <text
+                  x="95"
+                  y="52"
+                  font-size="9.5"
+                  font-weight="700"
+                  text-anchor="middle"
+                  fill="#29308d"
+                  id="map-pickup-label"
+                >
+                  Cafeteria
+                </text>
+                <!-- drop-off pin -->
+                <circle cx="245" cy="140" r="13" fill="#29308d" />
+                <text x="245" y="145" font-size="13" text-anchor="middle">
+                  📍
+                </text>
+                <text
+                  x="245"
+                  y="122"
+                  font-size="9.5"
+                  font-weight="700"
+                  text-anchor="middle"
+                  fill="#29308d"
+                  id="map-dropoff-label"
+                >
+                  Drop-off
+                </text>
+                <!-- runner -->
+                <g id="runner-marker" style="transform: translate(75px, 120px)">
+                  <circle
+                    r="14"
+                    fill="#ffd900"
+                    stroke="#29308d"
+                    stroke-width="2.5"
+                  />
+                  <text y="5" font-size="14" text-anchor="middle">🏃</text>
+                </g>
+              </svg>
+              <div class="map-caption" id="map-caption"></div>
+            </div>
+
+            <!-- Prompt to open the chat -->
+            <a class="track-prompt" id="track-prompt" href="messages.html">
+              <div>
+                <div class="track-prompt-title" id="prompt-title"></div>
+                <div class="track-prompt-sub" id="prompt-sub"></div>
+              </div>
+              <div class="track-prompt-chevron">&#8250;</div>
+            </a>
+
+            <div class="request-section-label">Progress</div>
+            <div class="timeline-card">
+              <ol class="timeline" id="timeline"></ol>
+            </div>
+
+            <!-- Runner -->
+            <div class="runner-card">
+              <div class="runner-avatar" id="runner-avatar"></div>
+              <div class="runner-info">
+                <div class="runner-name" id="runner-name"></div>
+                <div class="runner-sub">Your runner</div>
+              </div>
+              <a class="runner-msg-btn" href="messages.html">Message</a>
+            </div>
+
+            <!-- Order recap -->
+            <div class="request-section-label">Your order</div>
+            <div class="info-card">
+              <div class="recap-line">
+                <span>Drop-off</span><strong id="recap-dropoff"></strong>
+              </div>
+              <div class="recap-line">
+                <span>Request</span><strong id="recap-summary"></strong>
+              </div>
+              <div class="recap-line">
+                <span>Budget</span><strong id="recap-budget"></strong>
+              </div>
+              <div class="recap-line">
+                <span>Delivery fee</span><strong id="recap-fee"></strong>
+              </div>
+              <div class="recap-line">
+                <span id="recap-total-label">You&rsquo;ll pay up to</span
+                ><strong id="recap-total"></strong>
+              </div>
+              <div class="recap-line">
+                <span>Payment</span><strong>Cash after delivery</strong>
+              </div>
+            </div>
+
+            <!-- Buttons that depend on the current step -->
+            <div class="track-actions" id="track-actions"></div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <a class="nav-item" href="home.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 11.5L12 4l9 7.5" />
+                <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+              </svg>
+            </div>
+            <div class="nav-label">Home</div>
+          </a>
+
+          <a class="nav-item" href="activity.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 3a6 6 0 0 0-6 6c0 4-2 5-2 6h16c0-1-2-2-2-6a6 6 0 0 0-6-6z"
+                />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+              </svg>
+            </div>
+            <div class="nav-label">Activity</div>
+          </a>
+
+          <a class="nav-item nav-item-track current" href="track.html">
+            <div class="nav-icon">🏃</div>
+            <div class="nav-label">Track</div>
+          </a>
+
+          <a class="nav-item" href="messages.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                />
+              </svg>
+            </div>
+            <div class="nav-label">Messages</div>
+          </a>
+
+          <div class="nav-item">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
+            <div class="nav-label">Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script>
+      var Orders = CampusRunnersOrder;
+
+      var cancelArmed = false; // two-tap cancel while searching
+      var cancelTimer = null;
+      var cancelPanelOpen = false; // reason box after a runner accepted
+
+      // Where the runner sits on the prototype map for each step, plus the
+      // sample caption. PLACEHOLDER positions/ETAs, not real GPS.
+      function mapStep(order) {
+        var where = Orders.place(order).phrase;
+        var steps = {
+          accepted: {
+            x: 75,
+            y: 120,
+            caption: "is heading to " + where,
+            eta: "About 4 min away (sample)",
+          },
+          choosing: {
+            x: 95,
+            y: 70,
+            caption: "is at " + where,
+            eta: "Confirming your order in Messages",
+          },
+          buying: {
+            x: 95,
+            y: 70,
+            caption: "is buying your order",
+            eta: "At the counter",
+          },
+          receipt: {
+            x: 95,
+            y: 70,
+            caption: "has your receipt",
+            eta: "About to head to you",
+          },
+          on_the_way: {
+            x: 170,
+            y: 105,
+            caption: "is on the way to you",
+            eta: "About 3 min away (sample)",
+          },
+          arrived: {
+            x: 238,
+            y: 134,
+            caption: "is here",
+            eta: "Meet them outside",
+          },
+        };
+        return steps[order.status];
+      }
+
+      function timelineFor(order) {
+        var where = Orders.place(order).phrase;
+        return [
+          { key: "accepted", label: "Runner accepted" },
+          { key: "choosing", label: "At " + where + ": confirm what to buy" },
+          { key: "buying", label: "Buying your order" },
+          { key: "receipt", label: "Receipt sent" },
+          { key: "on_the_way", label: "On the way to you" },
+          { key: "arrived", label: "Runner is here" },
+        ];
+      }
+
+      function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function show(id, visible) {
+        document.getElementById(id).hidden = !visible;
+      }
+
+      function initials(name) {
+        return name
+          .split(" ")
+          .map(function (w) {
+            return w.charAt(0);
+          })
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
+      }
+
+      // What to nudge the customer to do in Messages at each step.
+      function promptFor(order) {
+        var name = Orders.runnerFirstName(order);
+        if (order.status === "accepted") {
+          return {
+            title: "Say hi to " + name,
+            sub: "Open Messages to chat with your runner.",
+          };
+        }
+        if (order.status === "choosing") {
+          if (!order.photosSent)
+            return {
+              title: "Photos coming soon",
+              sub:
+                name +
+                " will send photos of what\u2019s available. Open Messages.",
+            };
+          if (!order.confirmAsked)
+            return {
+              title: "Tell " + name + " what you\u2019d like",
+              sub: "Pick from the photos and chat about it in Messages.",
+            };
+          if (!order.itemsConfirmed)
+            return {
+              title: "Confirm your order",
+              sub:
+                "Tap \u201CLooks good\u201D in Messages so " +
+                name +
+                " can start buying.",
+            };
+          return {
+            title: "You\u2019re all set",
+            sub: name + " can start buying now.",
+          };
+        }
+        if (order.status === "buying") {
+          if (order.overBudget && order.overBudget.status === "pending") {
+            return {
+              title: name + " needs your OK",
+              sub:
+                "Approve or decline the extra \u20B1" +
+                order.overBudget.extra +
+                " in Messages.",
+            };
+          }
+          return {
+            title: "Need to tell " + name + " something?",
+            sub: "Open Messages.",
+          };
+        }
+        if (order.status === "receipt")
+          return {
+            title: "Your receipt is ready",
+            sub: "See the amount to pay in Messages.",
+          };
+        if (order.status === "on_the_way")
+          return {
+            title: name + " is on the way",
+            sub: "Message them if you need to.",
+          };
+        return {
+          title: name + " is here",
+          sub:
+            "Meet them outside at " +
+            (order.dropoff || "your drop-off point") +
+            ".",
+        };
+      }
+
+      function renderSearching(order) {
+        var text = Orders.cardText(order);
+        document.getElementById("search-title").textContent = text.title;
+        document.getElementById("search-sub").textContent = text.sub;
+        var btn = document.getElementById("search-cancel");
+        btn.textContent = cancelArmed ? "Tap again to cancel" : "Cancel order";
+      }
+
+      function renderMain(order) {
+        var name = Orders.runnerFirstName(order);
+        var where = Orders.place(order);
+        var step = mapStep(order);
+
+        // Map
+        document.getElementById("runner-marker").style.transform =
+          "translate(" + step.x + "px, " + step.y + "px)";
+        document.getElementById("map-pickup-label").textContent = where.label;
+        document.getElementById("map-pickup-emoji").textContent = where.emoji;
+        document.getElementById("map-dropoff-label").textContent =
+          order.dropoff || "Drop-off";
+        var caption = document.getElementById("map-caption");
+        caption.textContent = name + " " + step.caption;
+        caption.appendChild(el("span", "", step.eta));
+
+        // Prompt
+        var prompt = promptFor(order);
+        document.getElementById("prompt-title").textContent = prompt.title;
+        document.getElementById("prompt-sub").textContent = prompt.sub;
+
+        // Timeline
+        var currentIndex = Orders.FLOW.indexOf(order.status);
+        var list = document.getElementById("timeline");
+        list.innerHTML = "";
+        timelineFor(order).forEach(function (item) {
+          var idx = Orders.FLOW.indexOf(item.key);
+          var state =
+            idx < currentIndex
+              ? "done"
+              : idx === currentIndex
+                ? "current"
+                : "todo";
+          var li = el("li", "tl-item " + state);
+          li.appendChild(
+            el("span", "tl-dot", state === "done" ? "\u2713" : ""),
+          );
+          li.appendChild(el("span", "tl-label", item.label));
+          list.appendChild(li);
+        });
+
+        // Runner + recap
+        document.getElementById("runner-avatar").textContent = initials(
+          order.runner.name,
+        );
+        document.getElementById("runner-name").textContent = order.runner.name;
+        document.getElementById("recap-dropoff").textContent =
+          order.dropoff || "\u2014";
+        document.getElementById("recap-summary").textContent =
+          order.summary || "Custom order";
+
+        var extra = order.extraApproved || 0;
+        document.getElementById("recap-budget").textContent =
+          "\u20B1" +
+          (order.budget || 0) +
+          (extra ? " + \u20B1" + extra + " approved" : "");
+        document.getElementById("recap-fee").textContent =
+          "\u20B1" + (order.deliveryFee || 0);
+
+        var receiptKnown = order.payTotal != null;
+        document.getElementById("recap-total-label").textContent = receiptKnown
+          ? "Amount to pay"
+          : "You\u2019ll pay up to";
+        document.getElementById("recap-total").textContent =
+          "\u20B1" + (receiptKnown ? order.payTotal : Orders.maxToPay(order));
+
+        renderActions(order);
+      }
+
+      function renderActions(order) {
+        var box = document.getElementById("track-actions");
+        box.innerHTML = "";
+        var name = Orders.runnerFirstName(order);
+
+        if (order.status === "accepted" || order.status === "choosing") {
+          if (!cancelPanelOpen) {
+            var open = el("button", "outline-btn danger", "Cancel order");
+            open.type = "button";
+            open.addEventListener("click", function () {
+              cancelPanelOpen = true;
+              render();
+            });
+            box.appendChild(open);
+            return;
+          }
+
+          var panel = el("div", "cancel-panel");
+          panel.appendChild(
+            el("div", "info-card-header", "Why are you cancelling?"),
+          );
+          panel.appendChild(
+            el(
+              "div",
+              "info-card-text",
+              name + " will be told your order was cancelled.",
+            ),
+          );
+
+          var select = el("select", "location-input");
+          select.id = "cancel-reason";
+          [
+            "Choose a reason\u2026",
+            "I ordered by mistake",
+            "It\u2019s taking too long",
+            "I changed my mind",
+            "Something else came up",
+          ].forEach(function (label, i) {
+            var opt = el("option", "", label);
+            opt.value = i === 0 ? "" : label;
+            select.appendChild(opt);
+          });
+          panel.appendChild(select);
+
+          var confirmBtn = el(
+            "button",
+            "outline-btn danger",
+            "Confirm cancellation",
+          );
+          confirmBtn.type = "button";
+          confirmBtn.addEventListener("click", function () {
+            var reason = document.getElementById("cancel-reason").value;
+            var result = Orders.cancel(reason);
+            if (result.ok) {
+              cancelPanelOpen = false;
+              showToast("Order cancelled.");
+            } else {
+              showToast(result.message, { type: "error" });
+            }
+          });
+          panel.appendChild(confirmBtn);
+
+          var keepBtn = el("button", "outline-btn", "Keep my order");
+          keepBtn.type = "button";
+          keepBtn.addEventListener("click", function () {
+            cancelPanelOpen = false;
+            render();
+          });
+          panel.appendChild(keepBtn);
+
+          box.appendChild(panel);
+          return;
+        }
+
+        if (
+          order.status === "buying" ||
+          order.status === "receipt" ||
+          order.status === "on_the_way"
+        ) {
+          box.appendChild(
+            el(
+              "div",
+              "track-note",
+              name +
+                " has already started buying your order, so it can\u2019t be cancelled here. Message " +
+                name +
+                " if something is wrong.",
+            ),
+          );
+          return;
+        }
+
+        if (order.status === "arrived") {
+          var amount =
+            order.payTotal != null ? order.payTotal : Orders.maxToPay(order);
+          if (!order.customerConfirmed) {
+            var received = el("button", "checkout-btn", "I received my order");
+            received.type = "button";
+            received.addEventListener("click", function () {
+              Orders.confirm("customer");
+              showToast(
+                "Thanks! Waiting for " + name + " to confirm the cash.",
+              );
+            });
+            box.appendChild(received);
+            box.appendChild(
+              el(
+                "div",
+                "track-note",
+                "Pay " +
+                  name +
+                  " \u20B1" +
+                  amount +
+                  " in cash (receipt total plus delivery fee). Your order closes once " +
+                  name +
+                  " confirms too.",
+              ),
+            );
+          } else {
+            box.appendChild(
+              el(
+                "div",
+                "track-note",
+                "Thanks! Waiting for " +
+                  name +
+                  " to confirm they received your \u20B1" +
+                  amount +
+                  " in cash.",
+              ),
+            );
+          }
+        }
+      }
+
+      function render() {
+        var order = Orders.get();
+
+        if (!order) {
+          cancelPanelOpen = false;
+          show("track-empty", true);
+          show("track-searching", false);
+          show("track-main", false);
+          return;
+        }
+
+        if (order.status === "searching") {
+          cancelPanelOpen = false;
+          show("track-empty", false);
+          show("track-searching", true);
+          show("track-main", false);
+          renderSearching(order);
+          return;
+        }
+
+        show("track-empty", false);
+        show("track-searching", false);
+        show("track-main", true);
+        renderMain(order);
+      }
+
+      // Cancel while searching: free, but needs two taps.
+      document
+        .getElementById("search-cancel")
+        .addEventListener("click", function () {
+          if (!cancelArmed) {
+            cancelArmed = true;
+            clearTimeout(cancelTimer);
+            cancelTimer = setTimeout(function () {
+              cancelArmed = false;
+              render();
+            }, 3000);
+            render();
+            return;
+          }
+          clearTimeout(cancelTimer);
+          cancelArmed = false;
+          var result = Orders.cancel();
+          showToast(result.ok ? "Order cancelled." : result.message, {
+            type: result.ok ? "default" : "error",
+          });
+        });
+
+      Orders.subscribe(render);
+      render();
+      CampusRunnersDemo.mount();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusRunners - New Errand Request</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-frame">
+      <!-- One request form for every errand: cafeteria, Kubo and store -->
+      <div
+        class="screen active signup-screen has-bottom-nav"
+        id="screen-request"
+      >
+        <div class="screen-scroll">
+          <button
+            class="back-btn"
+            onclick="window.location.href = 'errands.html'"
+          >
+            &#8592;
+          </button>
+
+          <div class="request-heading">New Errand Request</div>
+
+          <!-- Pickup / drop-off -->
+          <div class="location-card">
+            <div class="location-row">
+              <div class="location-timeline">
+                <div class="location-dot filled"></div>
+                <div class="location-line"></div>
+                <div class="location-dot"></div>
+              </div>
+              <div class="location-fields">
+                <div class="location-field">
+                  <div class="location-field-label">Pickup point</div>
+                  <div class="location-value-fixed" id="pickup-value"></div>
+                </div>
+                <div class="location-field">
+                  <label class="location-field-label" for="dropoff-point"
+                    >Drop-off point</label
+                  >
+                  <input
+                    class="location-input"
+                    type="text"
+                    id="dropoff-point"
+                    list="dropoff-options"
+                    placeholder="Select location..."
+                    autocomplete="off"
+                  />
+                  <datalist id="dropoff-options">
+                    <option value="Dentistry Department"></option>
+                    <option value="SA Park"></option>
+                    <option value="College of Business"></option>
+                    <option value="College of Science and Technology"></option>
+                    <option value="Pioneer"></option>
+                    <option value="College of Medicine"></option>
+                    <option value="Library"></option>
+                    <option value="College of Nursing"></option>
+                    <option value="College of Theology"></option>
+                    <option value="College of Education"></option>
+                    <option value="College of Arts and Humanities"></option>
+                    <option value="AUP Gym"></option>
+                    <option value="Gazebo"></option>
+                    <option value="AUP Main Gate"></option>
+                    <option value="Cattleya Dormitory"></option>
+                    <option value="Cadena de Amor Dormitory"></option>
+                    <option value="Waling-Waling Dormitory"></option>
+                    <option value="Sampaguita Dormitory"></option>
+                  </datalist>
+                  <div class="field-hint">
+                    Your runner meets you outside. Classrooms aren't allowed as
+                    drop-off points.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Budget -->
+          <div class="request-section-label">Your budget</div>
+          <p class="section-help">
+            The most your runner can spend on your items. If something costs
+            more, they'll ask you first.
+          </p>
+          <div class="budget-wrap">
+            <div class="peso-input">
+              <span class="peso-sign">₱</span>
+              <input
+                class="location-input"
+                type="number"
+                id="budget"
+                min="1"
+                inputmode="numeric"
+                placeholder="e.g. 100"
+                aria-label="Budget in pesos"
+              />
+            </div>
+            <div class="chip-row" id="budget-chips"></div>
+          </div>
+
+          <!-- Message -->
+          <div class="request-section-label">What should your runner buy?</div>
+          <p class="section-help">
+            Tell us what and how many. Your runner will send photos and confirm
+            with you in Messages before buying.
+          </p>
+          <div class="location-field">
+            <textarea
+              class="message-textarea"
+              id="request-message"
+              maxlength="300"
+              placeholder=""
+            ></textarea>
+            <div class="field-hint char-count" id="char-count">0 / 300</div>
+          </div>
+
+          <!-- Cafeteria-only notices -->
+          <div id="cafeteria-notices" hidden>
+            <div class="info-card">
+              <div class="info-card-header">Sealed drinks only</div>
+              <div class="info-card-text">
+                Cup and dispenser drinks can't be delivered because they aren't
+                sealed and can spill.
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-header">🔒 Keep your ID private</div>
+              <div class="info-card-text">
+                Never share your ID number or cafeteria load with your runner.
+                Your runner pays first, and you pay them back in cash.
+              </div>
+            </div>
+          </div>
+
+          <!-- Total -->
+          <div class="total-card">
+            <div class="total-row">
+              <div class="total-label">You'll pay up to</div>
+              <div class="total-value" id="total-value">—</div>
+            </div>
+
+            <div class="total-lines">
+              <div class="total-line">
+                <span>Budget</span><span id="line-budget">—</span>
+              </div>
+              <div class="total-line">
+                <span>Delivery fee</span><span id="line-fee">from ₱30</span>
+              </div>
+            </div>
+
+            <div class="total-note" id="total-note">
+              You only pay what's on the receipt (up to your budget) plus the
+              delivery fee, in cash after delivery.
+            </div>
+          </div>
+
+          <button class="checkout-btn" onclick="handleProceed()">
+            Proceed
+          </button>
+        </div>
+
+        <div class="bottom-nav">
+          <a class="nav-item" href="home.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 11.5L12 4l9 7.5" />
+                <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+              </svg>
+            </div>
+            <div class="nav-label">Home</div>
+          </a>
+
+          <a class="nav-item" href="activity.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 3a6 6 0 0 0-6 6c0 4-2 5-2 6h16c0-1-2-2-2-6a6 6 0 0 0-6-6z"
+                />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+              </svg>
+            </div>
+            <div class="nav-label">Activity</div>
+          </a>
+
+          <a class="nav-item nav-item-track" href="track.html">
+            <div class="nav-icon">🏃</div>
+            <div class="nav-label">Track</div>
+          </a>
+
+          <a class="nav-item" href="messages.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                />
+              </svg>
+            </div>
+            <div class="nav-label">Messages</div>
+          </a>
+
+          <div class="nav-item">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
+            <div class="nav-label">Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script>
+      // ------------------------------------------------------------------
+      // SETTINGS: change numbers here and nothing else needs to be touched.
+      // ------------------------------------------------------------------
+
+      // PLACEHOLDER budget limits.
+      var MIN_BUDGET = 10;
+      var MAX_BUDGET = 500;
+      var BUDGET_SHORTCUTS = [50, 100, 150, 200];
+
+      // Delivery fee. *** PLACEHOLDER NUMBERS, replace with the real formula ***
+      var FEES = {
+        base: 30, // minimum fee for every delivery
+        zoneExtra: { near: 0, mid: 5, far: 10 }, // added by distance
+        peak: {
+          extra: 10, // added during peak hours
+          windows: [
+            { from: 11, to: 13 }, // 11:00 to 12:59
+          ],
+        },
+      };
+
+      // Which distance group each drop-off point belongs to.
+      // *** PLACEHOLDER GROUPING, not based on real distances ***
+      var DROPOFF_ZONES = {
+        Library: "near",
+        Pioneer: "near",
+        "SA Park": "near",
+        Gazebo: "near",
+        "College of Business": "near",
+        "College of Science and Technology": "near",
+        "College of Education": "mid",
+        "College of Arts and Humanities": "mid",
+        "College of Nursing": "mid",
+        "College of Theology": "mid",
+        "AUP Gym": "mid",
+        "College of Medicine": "mid",
+        "Dentistry Department": "mid",
+        "AUP Main Gate": "far",
+        "Cattleya Dormitory": "far",
+        "Cadena de Amor Dormitory": "far",
+        "Waling-Waling Dormitory": "far",
+        "Sampaguita Dormitory": "far",
+      };
+
+      // Text that changes with the errand type.
+      var EXAMPLES = {
+        cafeteria: "e.g. 2 viands and 1 rice, plus a brownie",
+        kubo: "e.g. 1 pancit canton and a bottled water",
+        store: "e.g. 1 notebook and 2 black pens",
+      };
+
+      // ------------------------------------------------------------------
+      // Which errand is this? (errands-request.html?type=cafeteria|kubo|store)
+      // ------------------------------------------------------------------
+
+      var TYPE = new URLSearchParams(window.location.search).get("type");
+      if (!CampusRunnersOrder.PLACES[TYPE]) TYPE = "cafeteria";
+      var PLACE = CampusRunnersOrder.PLACES[TYPE];
+
+      document.getElementById("pickup-value").textContent =
+        PLACE.emoji + " " + PLACE.label;
+      document.getElementById("request-message").placeholder = EXAMPLES[TYPE];
+      document.getElementById("cafeteria-notices").hidden = TYPE !== "cafeteria";
+      document.title = "CampusRunners - " + PLACE.label + " Errand";
+
+      // ------------------------------------------------------------------
+      // Helpers
+      // ------------------------------------------------------------------
+
+      function peso(n) {
+        return "₱" + n;
+      }
+
+      // Returns a whole-number budget, or 0 if the box is empty or invalid.
+      function getBudget() {
+        var val = parseInt(document.getElementById("budget").value, 10);
+        if (isNaN(val) || val < 0) return 0;
+        return val;
+      }
+
+      function budgetIsValid() {
+        var b = getBudget();
+        return b >= MIN_BUDGET && b <= MAX_BUDGET;
+      }
+
+      // Returns the matching official drop-off name, or "" if the text
+      // doesn't match one of the allowed points (case-insensitive).
+      function matchDropoff(text) {
+        var wanted = text.trim().toLowerCase();
+        if (!wanted) return "";
+        var names = Object.keys(DROPOFF_ZONES);
+        for (var i = 0; i < names.length; i++) {
+          if (names[i].toLowerCase() === wanted) return names[i];
+        }
+        return "";
+      }
+
+      function isPeakNow() {
+        var hour = new Date().getHours();
+        return FEES.peak.windows.some(function (w) {
+          return hour >= w.from && hour < w.to;
+        });
+      }
+
+      // Fee is "known" once a valid drop-off is chosen. Before that we only
+      // show the minimum.
+      function getDeliveryFee() {
+        var place = matchDropoff(document.getElementById("dropoff-point").value);
+        if (!place) return { amount: FEES.base, known: false, peak: false };
+
+        var amount = FEES.base + FEES.zoneExtra[DROPOFF_ZONES[place]];
+        var peak = isPeakNow();
+        if (peak) amount += FEES.peak.extra;
+        return { amount: amount, known: true, peak: peak };
+      }
+
+      // ------------------------------------------------------------------
+      // Display
+      // ------------------------------------------------------------------
+
+      function updateTotal() {
+        var budget = getBudget();
+        var fee = getDeliveryFee();
+        var ok = budget > 0;
+
+        document.getElementById("line-budget").textContent = ok
+          ? peso(budget)
+          : "—";
+        document.getElementById("line-fee").textContent = fee.known
+          ? peso(fee.amount)
+          : "from " + peso(fee.amount);
+        document.getElementById("total-value").textContent = ok
+          ? peso(budget + fee.amount)
+          : "—";
+
+        var note =
+          "You only pay what's on the receipt (up to your budget) plus the " +
+          "delivery fee, in cash after delivery.";
+        if (fee.peak) note = "Peak-hour fee included. " + note;
+        document.getElementById("total-note").textContent = note;
+
+        document.getElementById("char-count").textContent =
+          document.getElementById("request-message").value.length + " / 300";
+      }
+
+      // Quick-pick budget buttons
+      var chipRow = document.getElementById("budget-chips");
+      BUDGET_SHORTCUTS.forEach(function (amount) {
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.textContent = peso(amount);
+        chip.addEventListener("click", function () {
+          document.getElementById("budget").value = amount;
+          updateTotal();
+        });
+        chipRow.appendChild(chip);
+      });
+
+      ["budget", "dropoff-point", "request-message"].forEach(function (id) {
+        document.getElementById(id).addEventListener("input", updateTotal);
+      });
+      document
+        .getElementById("dropoff-point")
+        .addEventListener("change", updateTotal);
+
+      // ------------------------------------------------------------------
+      // Proceed
+      // ------------------------------------------------------------------
+
+      function handleProceed() {
+        var dropoffInput = document.getElementById("dropoff-point");
+        var budgetInput = document.getElementById("budget");
+        var messageInput = document.getElementById("request-message");
+
+        var dropoff = matchDropoff(dropoffInput.value);
+        var message = messageInput.value.trim();
+
+        if (!dropoffInput.value.trim()) {
+          dropoffInput.focus();
+          showToast("Please choose a drop-off point.", { type: "error" });
+          return;
+        }
+        if (!dropoff) {
+          dropoffInput.focus();
+          showToast("Please pick a drop-off point from the list.", {
+            type: "error",
+          });
+          return;
+        }
+        if (!budgetIsValid()) {
+          budgetInput.focus();
+          showToast(
+            "Enter a budget between " + peso(MIN_BUDGET) + " and " + peso(MAX_BUDGET) + ".",
+            { type: "error" },
+          );
+          return;
+        }
+        if (!message) {
+          messageInput.focus();
+          showToast("Tell your runner what to buy.", { type: "error" });
+          return;
+        }
+
+        var budget = getBudget();
+        var fee = getDeliveryFee();
+
+        var draft = {
+          type: TYPE,
+          dropoff: dropoff,
+          budget: budget,
+          message: message,
+          deliveryFee: fee.amount,
+          maxTotal: budget + fee.amount,
+        };
+
+        localStorage.setItem("cr_errand_order", JSON.stringify(draft));
+        window.location.href = "errands-summary.html";
+      }
+
+      // ------------------------------------------------------------------
+      // Coming back from the summary page: refill what the customer typed
+      // ------------------------------------------------------------------
+
+      function restoreDraft() {
+        var flag = null;
+        try {
+          flag = sessionStorage.getItem("cr_restore_errand");
+          sessionStorage.removeItem("cr_restore_errand");
+        } catch (e) {
+          return;
+        }
+        if (flag !== "1") return;
+
+        var d = null;
+        try {
+          d = JSON.parse(localStorage.getItem("cr_errand_order"));
+        } catch (e) {
+          return;
+        }
+        if (!d || d.type !== TYPE) return;
+
+        document.getElementById("dropoff-point").value = d.dropoff || "";
+        document.getElementById("budget").value = d.budget || "";
+        document.getElementById("request-message").value = d.message || "";
+      }
+
+      restoreDraft();
+      updateTotal();
+    </script>
+  </body>
+</html>
