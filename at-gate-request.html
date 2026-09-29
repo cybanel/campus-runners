@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusRunners - At the Gate Pick Up</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-frame">
+      <div class="screen active signup-screen has-bottom-nav" id="screen-gate-request">
+        <div class="screen-scroll">
+          <button class="back-btn" aria-label="Back to errands" onclick="window.location.href='errands.html'">&#8592;</button>
+          <div class="request-heading">At the Gate Pick Up</div>
+          <p class="section-help">
+            Your runner picks up one food order at the AUP Main Gate and brings
+            it to your selected drop-off point.
+          </p>
+
+          <div class="location-card">
+            <div class="location-row">
+              <div class="location-timeline">
+                <div class="location-dot filled"></div>
+                <div class="location-line"></div>
+                <div class="location-dot"></div>
+              </div>
+              <div class="location-fields">
+                <div class="location-field">
+                  <div class="location-field-label">Pick-up point</div>
+                  <div class="location-value-fixed" id="gate-pickup">🚪 AUP Main Gate</div>
+                </div>
+                <div class="location-field">
+                  <label class="location-field-label" for="gate-dropoff">Drop-off point</label>
+                  <input class="location-input" type="text" id="gate-dropoff" list="gate-dropoff-options" placeholder="Select location..." autocomplete="off" />
+                  <datalist id="gate-dropoff-options"></datalist>
+                  <div class="field-hint">The AUP Main Gate is the fixed pick-up point and cannot be selected as the drop-off.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="request-section-label">Food delivery information</div>
+          <div class="location-field">
+            <label class="location-field-label" for="food-name">Name on delivery</label>
+            <input class="location-input" type="text" id="food-name" maxlength="60" autocomplete="name" placeholder="e.g. Juan Dela Cruz" />
+          </div>
+          <div class="location-field">
+            <label class="location-field-label" for="food-service">Delivery service / restaurant</label>
+            <select class="location-input" id="food-service">
+              <option value="">Choose a service...</option>
+              <option value="Foodpanda">Foodpanda</option>
+              <option value="Grab">Grab</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="location-field gate-conditional" id="other-service-wrap" hidden>
+            <label class="location-field-label" for="other-service">Name of service / restaurant</label>
+            <input class="location-input" type="text" id="other-service" maxlength="50" placeholder="e.g. Local restaurant delivery" />
+          </div>
+
+          <div class="request-section-label">Payment status</div>
+          <div class="choice-row" id="food-payment-choices" role="radiogroup" aria-label="Food order payment status"></div>
+          <div class="location-field gate-conditional" id="cod-field" hidden>
+            <label class="location-field-label" for="cod-amount">COD amount</label>
+            <div class="peso-input">
+              <span class="peso-sign">₱</span>
+              <input class="location-input" type="number" id="cod-amount" min="1" step="1" inputmode="numeric" placeholder="e.g. 350" />
+            </div>
+            <div class="field-hint">This is what your runner pays the food delivery rider.</div>
+          </div>
+
+          <div class="request-section-label">When will the food arrive?</div>
+          <div class="choice-row stack" id="arrival-choices" role="radiogroup" aria-label="Expected food arrival"></div>
+
+          <div class="request-section-label">How should the food be handed over?</div>
+          <div class="choice-row stack" id="handover-choices" role="radiogroup" aria-label="Food handover method"></div>
+          <div class="field-hint" id="handover-hint"></div>
+
+          <div class="request-section-label">How will you pay the Runner?</div>
+          <div class="choice-row" id="runner-payment-choices" role="radiogroup" aria-label="Payment method for the Runner"></div>
+          <div class="field-hint" id="runner-payment-hint"></div>
+
+          <div class="request-section-label">Message to Runner</div>
+          <div class="location-field">
+            <textarea class="message-textarea" id="gate-message" maxlength="300" placeholder="e.g. The order is under Juan Dela Cruz. Please bring it to Dorm 3 front desk."></textarea>
+            <div class="field-hint char-count" id="gate-char-count">0 / 300</div>
+          </div>
+
+          <div class="total-card">
+            <div class="total-row">
+              <div class="total-label">Amount to pay the Runner</div>
+              <div class="total-value" id="gate-total">—</div>
+            </div>
+            <div class="total-lines">
+              <div class="total-line" id="cod-total-line"><span>Food COD owed to the delivery rider</span><span id="gate-cod-total">₱0</span></div>
+              <div class="total-line"><span>Delivery/service fee owed to the Runner</span><span id="gate-fee">from ₱30</span></div>
+            </div>
+            <div class="total-note">The total is the food COD amount, if any, plus one delivery/service fee. The payment method above is how you pay the Runner.</div>
+          </div>
+
+          <button class="checkout-btn" id="gate-proceed" type="button">Review request</button>
+        </div>
+        <div class="bottom-nav">
+          <a class="nav-item" href="home.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 11.5L12 4l9 7.5" />
+                <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+              </svg>
+            </div>
+            <div class="nav-label">Home</div>
+          </a>
+
+          <a class="nav-item" href="activity.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 3a6 6 0 0 0-6 6c0 4-2 5-2 6h16c0-1-2-2-2-6a6 6 0 0 0-6-6z"
+                />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+              </svg>
+            </div>
+            <div class="nav-label">Activity</div>
+          </a>
+
+          <a class="nav-item nav-item-track" href="track.html">
+            <div class="nav-icon">🏃</div>
+            <div class="nav-label">Track</div>
+          </a>
+
+          <a class="nav-item" href="messages.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                />
+              </svg>
+            </div>
+            <div class="nav-label">Messages</div>
+          </a>
+
+          <div class="nav-item">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
+            <div class="nav-label">Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="shared.js"></script>
+    <script>
+      var Orders = CampusRunnersOrder;
+      var G = Orders.GATE;
+      var DRAFT_KEY = "cr_gate_order";
+      var payStatus = "";
+      var expectedArrival = "";
+      var handover = "meet";
+      var paymentMethod = "cash";
+
+      function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function choice(group, value, title, checked, onChange) {
+        var label = el("label", "choice");
+        var input = document.createElement("input");
+        input.type = "radio";
+        input.name = group;
+        input.value = value;
+        input.checked = !!checked;
+        input.addEventListener("change", onChange);
+        label.appendChild(input);
+        label.appendChild(el("span", "choice-body", title));
+        document.getElementById(group + "-choices").appendChild(label);
+        return input;
+      }
+
+      function peso(amount) { return "₱" + amount; }
+
+      function matchDropoff() {
+        return Orders.matchGateDropoff(document.getElementById("gate-dropoff").value);
+      }
+
+      function updateTotal() {
+        var cod = payStatus === "cod" ? Math.max(0, Math.floor(Number(document.getElementById("cod-amount").value) || 0)) : 0;
+        var dropoff = matchDropoff();
+        var fee = dropoff ? Orders.gateDeliveryFee(dropoff) : null;
+        document.getElementById("gate-cod-total").textContent = peso(cod);
+        document.getElementById("gate-fee").textContent = fee == null ? "from ₱30" : peso(fee);
+        document.getElementById("gate-total").textContent = fee == null || (payStatus === "cod" && !cod) ? "—" : peso(cod + fee);
+        document.getElementById("cod-total-line").hidden = payStatus !== "cod";
+        document.getElementById("gate-char-count").textContent = document.getElementById("gate-message").value.length + " / 300";
+      }
+
+      function syncHandover() {
+        var allowed = G.frontDeskDropoffs.indexOf(matchDropoff()) !== -1;
+        var frontDeskInput = document.querySelector('input[name="handover"][value="front_desk"]');
+        frontDeskInput.disabled = !allowed;
+        if (!allowed && handover === "front_desk") {
+          handover = "meet";
+          document.querySelector('input[name="handover"][value="meet"]').checked = true;
+        }
+        var frontDesk = handover === "front_desk";
+        var cashInput = document.querySelector('input[name="runner-payment"][value="cash"]');
+        cashInput.disabled = frontDesk;
+        if (frontDesk) {
+          paymentMethod = "online";
+          document.querySelector('input[name="runner-payment"][value="online"]').checked = true;
+        }
+        document.getElementById("handover-hint").textContent = allowed
+          ? "Leave at the front desk is available for dormitory drop-offs."
+          : "Meet your Runner outside. Front desk drop-off is only available for dormitories.";
+        document.getElementById("runner-payment-hint").textContent = frontDesk
+          ? "Front desk drop-offs use GCash / Online. Your Runner shares payment details in Messages."
+          : paymentMethod === "online"
+            ? "Your Runner shares GCash details in Messages. This pays the Runner, including any COD they paid for you."
+            : "Pay the Runner in cash after handover, including any COD they paid for you.";
+      }
+
+      function buildChoices() {
+        var statusRow = document.getElementById("food-payment-choices");
+        ["paid", "cod"].forEach(function (value) {
+          var label = el("label", "choice");
+          var input = document.createElement("input");
+          input.type = "radio";
+          input.name = "food-payment";
+          input.value = value;
+          input.addEventListener("change", function () {
+            payStatus = value;
+            document.getElementById("cod-field").hidden = value !== "cod";
+            updateTotal();
+          });
+          label.appendChild(input);
+          label.appendChild(el("span", "choice-body", value === "paid" ? "Already Paid" : "Cash on Delivery (COD)"));
+          statusRow.appendChild(label);
+        });
+        Object.keys(G.arrivals).forEach(function (key) {
+          choice("arrival", key, G.arrivals[key], false, function () { expectedArrival = key; });
+        });
+        Object.keys(G.handovers).forEach(function (key) {
+          choice("handover", key, G.handovers[key], key === handover, function () {
+            handover = key;
+            syncHandover();
+          });
+        });
+        Object.keys(G.payments).forEach(function (key) {
+          choice("runner-payment", key, G.payments[key], key === paymentMethod, function () {
+            paymentMethod = key;
+            syncHandover();
+          });
+        });
+      }
+
+      function fail(message, id) {
+        if (id) document.getElementById(id).focus();
+        showToast(message, { type: "error" });
+      }
+
+      function proceed() {
+        var dropoffText = document.getElementById("gate-dropoff").value.trim();
+        var dropoff = matchDropoff();
+        var name = document.getElementById("food-name").value.trim();
+        var service = document.getElementById("food-service").value;
+        var other = document.getElementById("other-service").value.trim();
+        var codAmount = document.getElementById("cod-amount").value;
+        if (!dropoffText) return fail("Choose a drop-off point.", "gate-dropoff");
+        if (!dropoff) return fail("Choose a drop-off point from the list.", "gate-dropoff");
+        if (dropoff === G.pickup) return fail("The AUP Main Gate is the pick-up point. Choose another drop-off.", "gate-dropoff");
+        if (!name) return fail("Enter the name on the food delivery.", "food-name");
+        if (!service) return fail("Choose the delivery service or restaurant.", "food-service");
+        if (service === "Other" && !other) return fail("Enter the delivery service or restaurant name.", "other-service");
+        if (!payStatus) return fail("Choose the food order payment status.");
+        if (payStatus === "cod" && !(Number(codAmount) >= 1)) return fail("Enter the food COD amount.", "cod-amount");
+        if (!expectedArrival) return fail("Choose when the food is expected to arrive.");
+
+        var draft = {
+          type: "gate",
+          pickup: G.pickup,
+          dropoff: dropoff,
+          foodName: name,
+          foodService: service,
+          otherService: other,
+          foodPaymentStatus: payStatus,
+          codAmount: payStatus === "cod" ? Math.floor(Number(codAmount)) : 0,
+          expectedArrival: expectedArrival,
+          handover: handover,
+          paymentMethod: paymentMethod,
+          message: document.getElementById("gate-message").value.trim(),
+          deliveryFee: Orders.gateDeliveryFee(dropoff),
+          feeAt: Date.now(),
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        window.location.href = "at-gate-summary.html";
+      }
+
+      function restoreDraft() {
+        try {
+          if (sessionStorage.getItem("cr_restore_gate") !== "1") return;
+          sessionStorage.removeItem("cr_restore_gate");
+          var draft = JSON.parse(localStorage.getItem(DRAFT_KEY));
+          if (!draft || draft.type !== "gate") return;
+          document.getElementById("gate-dropoff").value = draft.dropoff || "";
+          document.getElementById("food-name").value = draft.foodName || "";
+          document.getElementById("food-service").value = draft.foodService === "Foodpanda" || draft.foodService === "Grab" ? draft.foodService : draft.foodService ? "Other" : "";
+          document.getElementById("other-service").value = draft.otherService || (draft.foodService !== "Foodpanda" && draft.foodService !== "Grab" ? draft.foodService || "" : "");
+          document.getElementById("other-service-wrap").hidden = document.getElementById("food-service").value !== "Other";
+          payStatus = draft.foodPaymentStatus || "";
+          expectedArrival = draft.expectedArrival || "";
+          handover = draft.handover || "meet";
+          paymentMethod = draft.paymentMethod || "cash";
+          document.querySelectorAll('input[name="food-payment"]').forEach(function (input) { input.checked = input.value === payStatus; });
+          document.querySelectorAll('input[name="arrival"]').forEach(function (input) { input.checked = input.value === expectedArrival; });
+          document.querySelectorAll('input[name="handover"]').forEach(function (input) { input.checked = input.value === handover; });
+          document.querySelectorAll('input[name="runner-payment"]').forEach(function (input) { input.checked = input.value === paymentMethod; });
+          document.getElementById("cod-amount").value = draft.codAmount || "";
+          document.getElementById("cod-field").hidden = payStatus !== "cod";
+          document.getElementById("gate-message").value = draft.message || "";
+        } catch (e) {}
+      }
+
+      var options = document.getElementById("gate-dropoff-options");
+      G.dropoffs.forEach(function (name) {
+        var option = document.createElement("option");
+        option.value = name;
+        options.appendChild(option);
+      });
+      buildChoices();
+      document.getElementById("food-service").addEventListener("change", function () {
+        var other = this.value === "Other";
+        document.getElementById("other-service-wrap").hidden = !other;
+      });
+      document.getElementById("gate-dropoff").addEventListener("input", function () {
+        syncHandover();
+        updateTotal();
+      });
+      document.getElementById("cod-amount").addEventListener("input", updateTotal);
+      document.getElementById("gate-message").addEventListener("input", updateTotal);
+      document.getElementById("gate-proceed").addEventListener("click", proceed);
+      restoreDraft();
+      syncHandover();
+      updateTotal();
+    </script>
+  </body>
+</html>

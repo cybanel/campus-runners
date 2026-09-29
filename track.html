@@ -348,7 +348,55 @@
         return steps[order.status];
       }
 
+      function gateMapStep(order) {
+        var frontDesk = Orders.isFrontDesk(order);
+        var arrival = Orders.GATE.arrivals[order.expectedArrival];
+        var steps = {
+          accepted: {
+            x: 75,
+            y: 120,
+            caption: "is preparing for the food at the AUP Main Gate",
+            eta: "Expected " + arrival,
+          },
+          waiting_food: {
+            x: 82,
+            y: 104,
+            caption: "is waiting for your food at the AUP Main Gate",
+            eta: "Expected " + arrival,
+          },
+          gate_pickup: order.pickupPhotos
+            ? {
+                x: 95,
+                y: 70,
+                caption: "collected your food at the AUP Main Gate",
+                eta: "Pickup proof is in Messages",
+              }
+            : {
+                x: 95,
+                y: 70,
+                caption: "is picking up your food at the AUP Main Gate",
+                eta: order.foodPaymentStatus === "cod"
+                  ? "Paying ₱" + order.codAmount + " COD"
+                  : "Food order already paid",
+              },
+          on_the_way: {
+            x: 170,
+            y: 105,
+            caption: "is on the way to you",
+            eta: "Heading to " + order.dropoff,
+          },
+          arrived: {
+            x: 238,
+            y: 134,
+            caption: frontDesk ? "left your food" : "is here",
+            eta: frontDesk ? "At the front desk" : "Meet them outside",
+          },
+        };
+        return steps[order.status];
+      }
+
       function mapStep(order) {
+        if (Orders.isGate(order)) return gateMapStep(order);
         if (Orders.isGazebo(order)) return gazeboMapStep(order);
         var where = Orders.place(order).phrase;
         var steps = {
@@ -402,6 +450,30 @@
       }
 
       function timelineFor(order) {
+        if (Orders.isGate(order)) {
+          var gateFlow = Orders.flowFor(order);
+          var collected = order.pickupPhotos ||
+            gateFlow.indexOf(order.status) > gateFlow.indexOf("gate_pickup");
+          var gateTimeline = [
+            { key: "accepted", label: "Runner accepted" },
+          ];
+          if (order.expectedArrival !== "now") {
+            gateTimeline.push({
+              key: "waiting_food",
+              label: "Waiting for food · " + Orders.GATE.arrivals[order.expectedArrival],
+            });
+          }
+          gateTimeline.push({
+            key: "gate_pickup",
+            label: collected ? "Food collected at AUP Main Gate" : "Pick up food at AUP Main Gate",
+          });
+          gateTimeline.push({ key: "on_the_way", label: "On the way to " + order.dropoff });
+          gateTimeline.push({
+            key: "arrived",
+            label: Orders.isFrontDesk(order) ? "Food left at the front desk" : "Meet Runner at drop-off",
+          });
+          return gateTimeline;
+        }
         if (Orders.isGazebo(order)) {
           var flow = Orders.flowFor(order);
           var pickedUp =
@@ -462,6 +534,32 @@
       // What to nudge the customer to do in Messages at each step.
       function promptFor(order) {
         var name = Orders.runnerFirstName(order);
+        if (Orders.isGate(order)) {
+          if (order.status === "accepted" || order.status === "waiting_food") {
+            return {
+              title: name + " is preparing for your food",
+              sub: "Expected at the AUP Main Gate: " + Orders.GATE.arrivals[order.expectedArrival] + ".",
+            };
+          }
+          if (order.status === "gate_pickup") {
+            return order.pickupPhotos
+              ? { title: "Pickup proof sent", sub: "See the AUP Main Gate photo in Messages." }
+              : { title: name + " is picking up your food", sub: order.foodPaymentStatus === "cod" ? "Paying ₱" + order.codAmount + " COD to the delivery rider." : "The food order is already paid." };
+          }
+          if (order.status === "on_the_way") {
+            return { title: name + " is on the way", sub: "Heading to " + order.dropoff + "." };
+          }
+          if (Orders.isFrontDesk(order)) {
+            return {
+              title: "Your food is at the front desk",
+              sub: "See delivery proof in Messages. Pay " + name + " ₱" + order.total + " through GCash / Online.",
+            };
+          }
+          return {
+            title: name + " is at " + order.dropoff,
+            sub: "Meet outside and pay your Runner " + (order.paymentMethod === "online" ? "through GCash / Online" : "in cash") + ".",
+          };
+        }
         if (Orders.isGazebo(order)) {
           if (order.status === "accepted") {
             return {
@@ -587,7 +685,8 @@
         // Map
         document.getElementById("runner-marker").style.transform =
           "translate(" + step.x + "px, " + step.y + "px)";
-        document.getElementById("map-pickup-label").textContent = where.label;
+        document.getElementById("map-pickup-label").textContent =
+          Orders.isGate(order) ? Orders.GATE.pickup : where.label;
         document.getElementById("map-pickup-emoji").textContent = where.emoji;
         document.getElementById("map-dropoff-label").textContent =
           order.dropoff || "Drop-off";
@@ -635,6 +734,30 @@
       function recapRows(order) {
         var rows = [["Drop-off", order.dropoff || "\u2014"]];
         var fee = "\u20B1" + (order.deliveryFee || 0);
+
+        if (Orders.isGate(order)) {
+          var G = Orders.GATE;
+          rows.unshift(["Pick-up", G.pickup]);
+          rows.push(["Name on delivery", order.foodName || "\u2014"]);
+          rows.push(["Delivery service / restaurant", order.foodService || "\u2014"]);
+          rows.push([
+            "Food payment status",
+            order.foodPaymentStatus === "cod" ? "Cash on Delivery (COD)" : "Already Paid",
+          ]);
+          if (order.foodPaymentStatus === "cod") {
+            rows.push(["COD owed to food delivery rider", "\u20B1" + (order.codAmount || 0)]);
+          }
+          rows.push([
+            "Expected food arrival",
+            G.arrivals[order.expectedArrival] || "\u2014",
+          ]);
+          rows.push(["Handover method", G.handovers[order.handover] || G.handovers.meet]);
+          rows.push(["Payment to Runner", G.payments[order.paymentMethod] || G.payments.cash]);
+          rows.push(["Customer message", order.message || "No message provided"]);
+          rows.push(["Delivery/service fee owed to Runner", fee]);
+          rows.push(["Total to pay Runner", "\u20B1" + Orders.maxToPay(order)]);
+          return rows;
+        }
 
         if (Orders.isGazebo(order)) {
           var G = Orders.GAZEBO;
@@ -784,6 +907,59 @@
         }
       }
 
+      function renderGateActions(box, order, name) {
+        var how = order.paymentMethod === "online" ? "through GCash / Online" : "in cash";
+        if (order.status !== "arrived") {
+          box.appendChild(
+            el(
+              "div",
+              "track-note",
+              order.status === "waiting_food"
+                ? name + " is preparing for the food delivery. Expected " + Orders.GATE.arrivals[order.expectedArrival] + "."
+                : "Your Runner will collect the food at the AUP Main Gate and send pickup proof in Messages.",
+            ),
+          );
+          return;
+        }
+
+        var total = order.total || 0;
+        if (Orders.isFrontDesk(order)) {
+          box.appendChild(
+            el(
+              "div",
+              "track-note",
+              "Your food was left at the " + order.dropoff + " front desk. Pay " +
+                name + " " + "\u20B1" + total + " " + how +
+                ". The order closes when your Runner confirms payment.",
+            ),
+          );
+          return;
+        }
+
+        if (!order.customerConfirmed) {
+          var received = el("button", "checkout-btn", "I received my food");
+          received.type = "button";
+          received.addEventListener("click", function () {
+            Orders.confirm("customer");
+            showToast("Thanks! Waiting for " + name + " to confirm your payment.");
+          });
+          box.appendChild(received);
+          box.appendChild(
+            el(
+              "div",
+              "track-note",
+              "Pay " + name + " " + "\u20B1" + total + " " + how +
+                ". This includes food COD of " + "\u20B1" + (order.codAmount || 0) +
+                " and the " + "\u20B1" + order.deliveryFee + " delivery fee. The order closes when you and your Runner confirm.",
+            ),
+          );
+        } else {
+          box.appendChild(
+            el("div", "track-note", "Thanks! Waiting for " + name + " to confirm payment received."),
+          );
+        }
+      }
+
       function renderActions(order) {
         var box = document.getElementById("track-actions");
         box.innerHTML = "";
@@ -860,6 +1036,11 @@
 
         if (Orders.isGazebo(order)) {
           renderGazeboActions(box, order, name);
+          return;
+        }
+
+        if (Orders.isGate(order)) {
+          renderGateActions(box, order, name);
           return;
         }
 

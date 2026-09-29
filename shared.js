@@ -112,6 +112,7 @@ var CampusRunnersOrder = (function () {
     // Gazebo Parcel Pick Up is NOT a shopping errand: the runner only
     // collects parcels that are already waiting at the gazebo.
     gazebo: { label: "Gazebo", phrase: "the Gazebo", emoji: "📦" },
+    gate: { label: "At the Gate", phrase: "AUP Main Gate", emoji: "🚪" },
   };
 
   var FLOW = [
@@ -131,6 +132,16 @@ var CampusRunnersOrder = (function () {
     "searching",
     "accepted",
     "picking_up",
+    "on_the_way",
+    "arrived",
+  ];
+
+  // Gate food orders have one customer, one food order, and two proof stages.
+  var FLOW_GATE = [
+    "searching",
+    "accepted",
+    "waiting_food",
+    "gate_pickup",
     "on_the_way",
     "arrived",
   ];
@@ -183,9 +194,70 @@ var CampusRunnersOrder = (function () {
     ],
   };
 
+  // At the Gate Pick Up is for one food delivery to one customer.
+  // Fee groups mirror the existing errand placeholder rates.
+  var GATE = {
+    pickup: "AUP Main Gate",
+    services: ["Foodpanda", "Grab", "Other"],
+    arrivals: {
+      now: "Already at the gate",
+      minutes30: "In about 30 minutes",
+      hour1: "In about 1 hour",
+    },
+    handovers: GAZEBO.handovers,
+    payments: GAZEBO.payments,
+    frontDeskDropoffs: GAZEBO.frontDeskDropoffs,
+    fees: {
+      base: 30,
+      zoneExtra: { near: 0, mid: 5, far: 10 },
+      peakExtra: 10,
+      peakHours: [{ from: 11, to: 13 }],
+    },
+    zones: {
+      Library: "near",
+      Pioneer: "near",
+      "SA Park": "near",
+      Gazebo: "near",
+      "College of Business": "near",
+      "College of Science and Technology": "near",
+      "College of Education": "mid",
+      "College of Arts and Humanities": "mid",
+      "College of Nursing": "mid",
+      "College of Theology": "mid",
+      "AUP Gym": "mid",
+      "College of Medicine": "mid",
+      "Dentistry Department": "mid",
+      "Cattleya Dormitory": "far",
+      "Cadena de Amor Dormitory": "far",
+      "Waling-Waling Dormitory": "far",
+      "Sampaguita Dormitory": "far",
+    },
+    dropoffs: [
+      "Dentistry Department",
+      "SA Park",
+      "College of Business",
+      "College of Science and Technology",
+      "Pioneer",
+      "College of Medicine",
+      "Library",
+      "College of Nursing",
+      "College of Theology",
+      "College of Education",
+      "College of Arts and Humanities",
+      "AUP Gym",
+      "Gazebo",
+      "Cattleya Dormitory",
+      "Cadena de Amor Dormitory",
+      "Waling-Waling Dormitory",
+      "Sampaguita Dormitory",
+    ],
+  };
+
   var LABELS = {
     searching: "Looking for a runner",
     accepted: "Runner accepted",
+    waiting_food: "Waiting for food at the gate",
+    gate_pickup: "Picking up your food",
     picking_up: "Picking up your parcels",
     choosing: "Confirming your order",
     buying: "Buying your order",
@@ -271,11 +343,20 @@ var CampusRunnersOrder = (function () {
     return !!order && order.type === "gazebo";
   }
 
+  function isGate(order) {
+    return !!order && order.type === "gate";
+  }
+
   function isFrontDesk(order) {
-    return isGazebo(order) && order.handover === "front_desk";
+    return (isGazebo(order) || isGate(order)) && order.handover === "front_desk";
   }
 
   function flowFor(order) {
+    if (isGate(order)) {
+      return order.expectedArrival === "now"
+        ? ["searching", "accepted", "gate_pickup", "on_the_way", "arrived"]
+        : FLOW_GATE;
+    }
     return isGazebo(order) ? FLOW_GAZEBO : FLOW;
   }
 
@@ -302,10 +383,30 @@ var CampusRunnersOrder = (function () {
     return "";
   }
 
+  function matchGateDropoff(text) {
+    var wanted = (text || "").trim().toLowerCase();
+    for (var i = 0; i < GATE.dropoffs.length; i++) {
+      if (GATE.dropoffs[i].toLowerCase() === wanted) return GATE.dropoffs[i];
+    }
+    return "";
+  }
+
+  function gateDeliveryFee(dropoff, at) {
+    var place = matchGateDropoff(dropoff);
+    if (!place) return 0;
+    var fees = GATE.fees;
+    var amount = fees.base + fees.zoneExtra[GATE.zones[place]];
+    var date = at == null ? new Date() : new Date(at);
+    if (fees.peakHours.some(function (window) {
+      return date.getHours() >= window.from && date.getHours() < window.to;
+    })) amount += fees.peakExtra;
+    return amount;
+  }
+
   // The most the customer could pay. For Gazebo orders the total is exact
   // (COD amounts + one delivery fee), so it is also the amount to pay.
   function maxToPay(order) {
-    if (isGazebo(order)) return order.total || 0;
+    if (isGazebo(order) || isGate(order)) return order.total || 0;
     return spendLimit(order) + (order.deliveryFee || 0);
   }
 
@@ -315,7 +416,8 @@ var CampusRunnersOrder = (function () {
     if (order.status === "delivered" && order.paidTotal != null) {
       return { prefix: "Paid ", amount: order.paidTotal };
     }
-    if (isGazebo(order)) return { prefix: "Total ", amount: order.total || 0 };
+    if (isGazebo(order) || isGate(order))
+      return { prefix: "Total ", amount: order.total || 0 };
     return { prefix: "Up to ", amount: order.total || 0 };
   }
 
@@ -323,6 +425,7 @@ var CampusRunnersOrder = (function () {
   function create(details) {
     if (get()) return null;
     if (details && details.type === "gazebo") return createGazebo(details);
+    if (details && details.type === "gate") return createGate(details);
     var now = Date.now();
     var budget = details.budget || 0;
     var fee = details.deliveryFee || 0;
@@ -442,6 +545,81 @@ var CampusRunnersOrder = (function () {
       handover: handover,
       paymentMethod: paymentMethod,
       codTotal: codTotal,
+      pickupPhotos: false,
+      deliveryPhoto: false,
+    };
+    save(order);
+    return order;
+  }
+
+  // Creates one food-delivery pickup at the AUP Main Gate for one customer.
+  function createGate(details) {
+    var dropoff = matchGateDropoff(details.dropoff);
+    var name = String(details.foodName || "").trim().slice(0, 60);
+    var service = String(details.foodService || "").trim().slice(0, 50);
+    var expectedArrival = GATE.arrivals[details.expectedArrival]
+      ? details.expectedArrival
+      : "";
+    var paymentStatus = details.foodPaymentStatus;
+    var codAmount = paymentStatus === "cod"
+      ? Math.floor(Number(details.codAmount))
+      : 0;
+
+    if (
+      !dropoff ||
+      dropoff === GATE.pickup ||
+      !name ||
+      !GATE.services.includes(service) ||
+      ["paid", "cod"].indexOf(paymentStatus) === -1 ||
+      (service === "Other" && !String(details.otherService || "").trim()) ||
+      !expectedArrival ||
+      (paymentStatus === "cod" && !(codAmount >= 1))
+    ) return null;
+
+    var deliveryService = service === "Other"
+      ? String(details.otherService || "").trim().slice(0, 50)
+      : service;
+    var handover = details.handover === "front_desk" &&
+      GATE.frontDeskDropoffs.indexOf(dropoff) !== -1
+      ? "front_desk"
+      : "meet";
+    var paymentMethod =
+      handover === "front_desk" || details.paymentMethod === "online"
+        ? "online"
+        : "cash";
+    var message = String(details.message || "").trim().slice(0, 300);
+    var fee = gateDeliveryFee(dropoff, details.feeAt);
+    var total = codAmount + fee;
+    var now = Date.now();
+    var order = {
+      id: "CR-" + now.toString(36).toUpperCase(),
+      type: "gate",
+      createdAt: now,
+      searchStartedAt: now,
+      status: "searching",
+      pickup: GATE.pickup,
+      dropoff: dropoff,
+      budget: 0,
+      deliveryFee: fee,
+      total: total,
+      payTotal: total,
+      foodName: name,
+      foodService: deliveryService,
+      foodPaymentStatus: paymentStatus,
+      codAmount: codAmount,
+      codTotal: codAmount,
+      expectedArrival: expectedArrival,
+      handover: handover,
+      paymentMethod: paymentMethod,
+      message: message,
+      summary:
+        deliveryService + " food order for " + name +
+        (paymentStatus === "cod" ? " · COD ₱" + codAmount : " · Already paid"),
+      runner: null,
+      customerConfirmed: false,
+      runnerConfirmed: false,
+      chat: [],
+      inQueue: false,
       pickupPhotos: false,
       deliveryPhoto: false,
     };
@@ -603,6 +781,89 @@ var CampusRunnersOrder = (function () {
     }
   }
 
+  function gateStatusMessages(order, key, name, dropoff) {
+    var foodName = order.foodName || "your food order";
+    if (key === "accepted") {
+      pushMessage(order, {
+        from: "system",
+        type: "text",
+        text: name + " accepted your At the Gate Pick Up request.",
+      });
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text: "Hi! I'll pick up " + foodName + " at the AUP Main Gate. " +
+          (order.expectedArrival === "now"
+            ? "The food is already at the gate."
+            : "Expected arrival: " + GATE.arrivals[order.expectedArrival] + "."),
+      });
+      if (order.foodPaymentStatus === "cod") {
+        pushMessage(order, {
+          from: "runner",
+          type: "text",
+          text: "I'll pay ₱" + order.codAmount + " COD to the food delivery rider.",
+        });
+      }
+    } else if (key === "waiting_food") {
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text:
+          "I'm preparing to meet the food delivery at the AUP Main Gate. " +
+          "Expected arrival: " + GATE.arrivals[order.expectedArrival] + ".",
+      });
+    } else if (key === "gate_pickup") {
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text: "Your food has arrived at the AUP Main Gate. I'm picking it up now.",
+      });
+    } else if (key === "on_the_way") {
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text: "I picked up your food and am on my way to " + dropoff + ".",
+      });
+    } else if (key === "arrived") {
+      var frontDesk = isFrontDesk(order);
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text: frontDesk
+          ? "I left your food at the " + dropoff + " front desk."
+          : "I'm at " + dropoff + ". I'll meet you outside.",
+      });
+      pushMessage(order, {
+        from: "runner",
+        type: "proof",
+        kind: "delivery",
+        photos: [{
+          emoji: frontDesk ? "🚪" : "🍱",
+          courier: frontDesk ? "Left at the front desk" : "Food handed over",
+          name: dropoff,
+          cod: 0,
+        }],
+        text: frontDesk
+          ? "Here's proof that your food was left at the front desk."
+          : "Here's proof that your food was delivered.",
+      });
+      order.deliveryPhoto = true;
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text:
+          "Amount to pay me: ₱" + order.total + " (" +
+          (order.foodPaymentStatus === "cod"
+            ? "food COD ₱" + order.codAmount + " + "
+            : "food order already paid + ") +
+          "delivery fee ₱" + order.deliveryFee + "). " +
+          (order.paymentMethod === "online"
+            ? "Please pay through GCash / Online. I'll confirm once received."
+            : "Please pay in cash when I hand over the food."),
+      });
+    }
+  }
+
   function setStatus(key) {
     var order = get();
     if (!order) return;
@@ -615,6 +876,12 @@ var CampusRunnersOrder = (function () {
     var name = runnerFirstName(order);
     var where = place(order).phrase;
     var dropoff = order.dropoff || "your drop-off point";
+
+    if (isGate(order)) {
+      gateStatusMessages(order, key, name, dropoff);
+      save(order);
+      return;
+    }
 
     if (isGazebo(order)) {
       gazeboStatusMessages(order, key, name, dropoff);
@@ -794,6 +1061,32 @@ var CampusRunnersOrder = (function () {
     save(order);
   }
 
+  // The gate pickup photo is proof only; the customer never approves it.
+  function sendGatePickupPhoto() {
+    var order = get();
+    if (!isGate(order) || order.status !== "gate_pickup" || order.pickupPhotos)
+      return false;
+    pushMessage(order, {
+      from: "runner",
+      type: "proof",
+      kind: "pickup",
+      label: "Pickup proof at the AUP Main Gate",
+      photos: [{
+        emoji: "🍱",
+        courier: order.foodService,
+        name: order.foodName,
+        cod: order.foodPaymentStatus === "cod" ? order.codAmount : 0,
+      }],
+      text: order.foodPaymentStatus === "cod"
+        ? "I picked up your food at the AUP Main Gate and paid ₱" +
+          order.codAmount + " COD to the delivery rider."
+        : "I picked up your food at the AUP Main Gate. The food order was already paid.",
+    });
+    order.pickupPhotos = true;
+    save(order);
+    return true;
+  }
+
   // The "Looks good" button: a record that the customer agreed to the
   // order. The actual agreeing happens in the chat.
   function confirmItems() {
@@ -908,6 +1201,8 @@ var CampusRunnersOrder = (function () {
     // Gazebo: the runner can't leave the Gazebo without sending pickup photos.
     if (isGazebo(order) && order.status === "picking_up" && !order.pickupPhotos)
       return;
+    if (isGate(order) && order.status === "gate_pickup" && !order.pickupPhotos)
+      return;
 
     // The runner can't start buying until the customer taps "Looks good".
     if (order.status === "choosing" && !order.itemsConfirmed) return;
@@ -950,11 +1245,13 @@ var CampusRunnersOrder = (function () {
       archive(order, "cancelled", { cancelReason: reason });
       return { ok: true };
     }
-    if (isGazebo(order)) {
+    if (isGazebo(order) || isGate(order)) {
       return {
         ok: false,
         message:
-          "Your runner is already picking up your parcels (and may have paid the courier), so it can't be cancelled here. Message your runner if something is wrong.",
+          isGate(order)
+            ? "Your runner is already preparing to collect your food, so it can't be cancelled here. Message your runner if something is wrong."
+            : "Your runner is already picking up your parcels (and may have paid the courier), so it can't be cancelled here. Message your runner if something is wrong.",
       };
     }
     return {
@@ -1028,8 +1325,37 @@ var CampusRunnersOrder = (function () {
     return null;
   }
 
+  function gateCardText(order, name) {
+    var arrival = GATE.arrivals[order.expectedArrival] || "the scheduled time";
+    var dropoff = order.dropoff || "your drop-off point";
+    if (order.status === "waiting_food") {
+      return {
+        title: name + " is preparing for your food",
+        sub: "Expected at the AUP Main Gate: " + arrival,
+      };
+    }
+    if (order.status === "gate_pickup") {
+      return order.pickupPhotos
+        ? { title: name + " collected your food", sub: "Pickup proof is in Messages" }
+        : { title: name + " is at the AUP Main Gate", sub: "Picking up your food" };
+    }
+    if (order.status === "arrived") {
+      return isFrontDesk(order)
+        ? {
+            title: name + " left your food at the front desk",
+            sub: "Pay ₱" + order.total + " through GCash / Online",
+          }
+        : { title: name + " is here", sub: "Meet outside at " + dropoff };
+    }
+    return null;
+  }
+
   // Customer-facing wording for the current step (Home card, Track, etc.)
   function cardText(order) {
+    if (isGate(order)) {
+      var gateText = gateCardText(order, runnerFirstName(order));
+      if (gateText) return gateText;
+    }
     if (isGazebo(order)) {
       var g = gazeboCardText(order, runnerFirstName(order));
       if (g) return g;
@@ -1122,15 +1448,21 @@ var CampusRunnersOrder = (function () {
     STATUS_LABELS: LABELS,
     FLOW: FLOW,
     FLOW_GAZEBO: FLOW_GAZEBO,
+    FLOW_GATE: FLOW_GATE,
     flowFor: flowFor,
     GAZEBO: GAZEBO,
+    GATE: GATE,
     isGazebo: isGazebo,
+    isGate: isGate,
     isFrontDesk: isFrontDesk,
     parcelWord: parcelWord,
     formatClock: formatClock,
     matchGazeboDropoff: matchGazeboDropoff,
+    matchGateDropoff: matchGateDropoff,
+    gateDeliveryFee: gateDeliveryFee,
     amountLabel: amountLabel,
     sendPickupPhotos: sendPickupPhotos,
+    sendGatePickupPhoto: sendGatePickupPhoto,
     PLACES: PLACES,
     place: place,
     spendLimit: spendLimit,
@@ -1202,6 +1534,7 @@ var CampusRunnersDemo = (function () {
     function addNote(text) {
       var n = document.createElement("div");
       n.className = "demo-note";
+      n.style.whiteSpace = "pre-line";
       n.textContent = text;
       panel.appendChild(n);
     }
@@ -1217,6 +1550,7 @@ var CampusRunnersDemo = (function () {
 
       var order = Orders.get();
       var status = order ? order.status : null;
+      panel.classList.toggle("demo-panel-gate", Orders.isGate(order));
 
       addNote(
         order ? "Now: " + Orders.STATUS_LABELS[status] : "No active order.",
@@ -1283,8 +1617,68 @@ var CampusRunnersDemo = (function () {
             paymentMethod: "online",
           });
         });
+        addButton("Create a sample At the Gate food order", function () {
+          Orders.create({
+            type: "gate",
+            dropoff: "Cattleya Dormitory",
+            foodName: "Juan Dela Cruz",
+            foodService: "Grab",
+            foodPaymentStatus: "cod",
+            codAmount: 350,
+            expectedArrival: "minutes30",
+            handover: "front_desk",
+            paymentMethod: "online",
+            message: "Please leave it at the Dormitory front desk.",
+            feeAt: Date.now(),
+          });
+        });
       } else if (status === "searching") {
         addButton("Runner accepts", Orders.advance);
+      } else if (Orders.isGate(order)) {
+        addNote(
+          "Runner task\nPick-up: " + Orders.GATE.pickup +
+            "\nDrop-off: " + order.dropoff +
+            "\nName on delivery: " + order.foodName +
+            "\nService: " + order.foodService +
+            "\nExpected: " + Orders.GATE.arrivals[order.expectedArrival] +
+            "\nFood payment: " +
+              (order.foodPaymentStatus === "cod"
+                ? "COD ₱" + order.codAmount
+                : "Already paid") +
+            "\nHandover: " + Orders.GATE.handovers[order.handover] +
+            "\nPayment to Runner: " + Orders.GATE.payments[order.paymentMethod] +
+            "\nCustomer message: " + (order.message || "None"),
+        );
+        if (status === "accepted") {
+          addButton(
+            order.expectedArrival === "now"
+              ? "Runner: food is at the AUP Main Gate"
+              : "Runner prepares for the food arrival",
+            Orders.advance,
+          );
+        } else if (status === "waiting_food") {
+          addButton("Runner: food arrives at the AUP Main Gate", Orders.advance);
+        } else if (status === "gate_pickup") {
+          if (!order.pickupPhotos) {
+            addButton("Runner sends pickup proof photo", Orders.sendGatePickupPhoto);
+          } else {
+            addButton("Runner heads to drop-off", Orders.advance);
+          }
+        } else if (status === "on_the_way") {
+          addButton("Runner: arrives + delivery proof photo", Orders.advance);
+        } else if (status === "arrived") {
+          addButton(
+            order.paymentMethod === "online"
+              ? "Runner: payment received"
+              : "Runner: cash received",
+            function () { Orders.confirm("runner"); },
+          );
+          if (Orders.isFrontDesk(order)) {
+            addNote("Front desk: order completes after payment is received.");
+          } else {
+            addButton("Customer: I received it", function () { Orders.confirm("customer"); });
+          }
+        }
       } else if (status === "accepted") {
         addButton(
           Orders.isGazebo(order)
@@ -1330,8 +1724,7 @@ var CampusRunnersDemo = (function () {
           Orders.advance,
         );
       } else if (status === "arrived") {
-        var gazebo = Orders.isGazebo(order);
-        var online = gazebo && order.paymentMethod === "online";
+        var online = Orders.isGazebo(order) && order.paymentMethod === "online";
         addButton(
           online ? "Runner: payment received" : "Runner: cash received",
           function () {

@@ -1367,6 +1367,12 @@ body {
   display: none;
 }
 
+.demo-panel.demo-panel-gate {
+  box-sizing: border-box;
+  max-height: calc(100% - 72px);
+  overflow-y: auto;
+}
+
 .demo-title {
   font-size: 13px;
   font-weight: 800;
@@ -2125,6 +2131,14 @@ div.photo-tile {
 
 .parcel-card .location-field[hidden] {
   display: none;
+}
+
+#screen-gate-request .gate-conditional[hidden] {
+  display: none;
+}
+
+#screen-gate-request select.location-input {
+  appearance: auto;
 }
 
 .parcel-card select.location-input {

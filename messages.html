@@ -188,9 +188,10 @@
           el(
             "div",
             "proof-label",
-            msg.kind === "delivery"
-              ? "Delivery proof"
-              : "Pickup proof at the Gazebo",
+            msg.label ||
+              (msg.kind === "delivery"
+                ? "Delivery proof"
+                : "Pickup proof at the Gazebo"),
           ),
         );
 
