@@ -146,9 +146,9 @@ var CampusRunnersOrder = (function () {
       { emoji: "🍪", name: "Biscuits", price: 15 },
     ],
     store: [
-      { emoji: "📓", name: "Notebook", price: 35 },
-      { emoji: "🖊️", name: "Ballpen", price: 10 },
-      { emoji: "📁", name: "Folder", price: 8 },
+      { emoji: "🍟", name: "Potato chips", price: 25 },
+      { emoji: "🍅", name: "Tomatoes (1/4 kilo)", price: 30 },
+      { emoji: "🧴", name: "Detergent sachet", price: 12 },
     ],
   };
 
@@ -231,6 +231,7 @@ var CampusRunnersOrder = (function () {
       runnerConfirmed: false,
       // Chat + buying steps
       chat: [],
+      inQueue: false,
       photosSent: false,
       confirmAsked: false,
       itemsConfirmed: false,
@@ -278,6 +279,7 @@ var CampusRunnersOrder = (function () {
     var order = get();
     if (!order) return;
     order.status = key;
+    order.inQueue = false; // a new step starts, so the queue notice resets
     if (key === "accepted" && !order.runner) {
       order.runner = DEMO_RUNNER;
       order.acceptedAt = Date.now();
@@ -346,6 +348,25 @@ var CampusRunnersOrder = (function () {
     pushMessage(order, { from: "you", type: "text", text: text.slice(0, 500) });
     save(order);
     return true;
+  }
+
+  // Runner tells the customer they're waiting in a long queue (demo panel
+  // triggers this). Only while at the pickup point, and once per step so it
+  // doesn't turn into spam.
+  function notifyQueue() {
+    var order = get();
+    if (!order || order.inQueue) return;
+    if (order.status !== "choosing" && order.status !== "buying") return;
+    order.inQueue = true;
+    pushMessage(order, {
+      from: "runner",
+      type: "queue",
+      text:
+        "🕒 I'm in the queue at " +
+        place(order).phrase +
+        ". It's a bit long, but I'm still here and I'll update you.",
+    });
+    save(order);
   }
 
   // Runner sends photos of what's available (demo panel triggers this).
@@ -605,6 +626,12 @@ var CampusRunnersOrder = (function () {
           sub: "Heading to " + p.phrase,
         };
       case "choosing":
+        if (order.inQueue) {
+          return {
+            title: name + " is in the queue",
+            sub: "It's a bit long. " + name + " will update you.",
+          };
+        }
         return {
           title: name + " is at " + p.phrase,
           sub: "Open Messages to confirm what to buy",
@@ -614,6 +641,12 @@ var CampusRunnersOrder = (function () {
           return {
             title: name + " needs your OK",
             sub: "An item costs more than your budget",
+          };
+        }
+        if (order.inQueue) {
+          return {
+            title: name + " is in the queue",
+            sub: "It's a bit long. Hang tight.",
           };
         }
         return { title: name + " is buying your order", sub: "Hang tight" };
@@ -647,6 +680,75 @@ var CampusRunnersOrder = (function () {
     emit();
   }
 
+  // ---- Rating (customer rates the runner after delivery) ----
+  // The rating is saved on the finished order in the past list:
+  //   rating: { stars: 1-5, ratedAt }   or   ratingSkipped: true
+  // ratePrompted is a one-time flag so the customer is only sent to
+  // rate.html automatically once (Activity keeps a "Rate your runner" link).
+  // PLACEHOLDERS:
+  var RATING_PROMPT_WINDOW_MS = 10 * 60 * 1000; // only auto-prompt for orders finished in the last 10 min
+
+  function findPast(id) {
+    var past = getPast();
+    for (var i = 0; i < past.length; i++) {
+      if (past[i].id === id) return past[i];
+    }
+    return null;
+  }
+
+  // Changes one past order and saves the list. Returns false if not found.
+  function updatePast(id, fn, silent) {
+    var past = getPast();
+    for (var i = 0; i < past.length; i++) {
+      if (past[i].id === id) {
+        fn(past[i]);
+        write(PAST_KEY, past);
+        if (!silent) emit();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Newest delivered order that has not been rated or skipped yet.
+  function pendingRating() {
+    var past = getPast();
+    for (var i = 0; i < past.length; i++) {
+      var o = past[i];
+      if (o.status === "delivered" && !o.rating && !o.ratingSkipped) return o;
+    }
+    return null;
+  }
+
+  function rate(id, stars) {
+    stars = parseInt(stars, 10);
+    if (isNaN(stars) || stars < 1 || stars > 5) return false;
+    var target = findPast(id);
+    if (!target || target.status !== "delivered" || target.rating) return false;
+    return updatePast(id, function (o) {
+      o.rating = {
+        stars: stars,
+        ratedAt: Date.now(),
+      };
+    });
+  }
+
+  function skipRating(id) {
+    return updatePast(id, function (o) {
+      o.ratingSkipped = true;
+    });
+  }
+
+  function markRatePrompted(id) {
+    return updatePast(
+      id,
+      function (o) {
+        o.ratePrompted = true;
+      },
+      true,
+    );
+  }
+
   function subscribe(fn) {
     subscribers.push(fn);
   }
@@ -669,6 +771,7 @@ var CampusRunnersOrder = (function () {
     setStatus: setStatus,
     advance: advance,
     sendCustomerMessage: sendCustomerMessage,
+    notifyQueue: notifyQueue,
     sendPhotos: sendPhotos,
     askConfirmation: askConfirmation,
     confirmItems: confirmItems,
@@ -682,7 +785,34 @@ var CampusRunnersOrder = (function () {
     runnerFirstName: runnerFirstName,
     reset: reset,
     subscribe: subscribe,
+    findPast: findPast,
+    pendingRating: pendingRating,
+    rate: rate,
+    skipRating: skipRating,
+    markRatePrompted: markRatePrompted,
+    RATING_PROMPT_WINDOW_MS: RATING_PROMPT_WINDOW_MS,
   };
+})();
+
+// ---- Rating prompt ----
+// Right after an order is delivered, send the customer to rate.html once,
+// whatever page they are on. Skipping keeps the "Rate your runner" link
+// on the Activity card.
+(function () {
+  function check() {
+    if (/rate\.html$/.test(window.location.pathname)) return;
+    var o = CampusRunnersOrder.pendingRating();
+    if (!o || o.ratePrompted) return;
+    if (
+      Date.now() - (o.completedAt || 0) >
+      CampusRunnersOrder.RATING_PROMPT_WINDOW_MS
+    )
+      return;
+    CampusRunnersOrder.markRatePrompted(o.id);
+    window.location.href = "rate.html?id=" + encodeURIComponent(o.id);
+  }
+  CampusRunnersOrder.subscribe(check);
+  check();
 })();
 
 // ---- Demo runner panel ----
@@ -746,13 +876,32 @@ var CampusRunnersDemo = (function () {
       );
 
       if (!order) {
-        addButton("Create a sample order", function () {
+        // PLACEHOLDER sample orders, one per errand type.
+        addButton("Create a sample cafeteria order", function () {
           Orders.create({
             type: "cafeteria",
             dropoff: "Library",
             budget: 100,
             deliveryFee: 30,
             message: "2 viands and 1 rice please",
+          });
+        });
+        addButton("Create a sample Kubo order", function () {
+          Orders.create({
+            type: "kubo",
+            dropoff: "Library",
+            budget: 100,
+            deliveryFee: 30,
+            message: "1 pancit canton and a bottled water",
+          });
+        });
+        addButton("Create a sample store order", function () {
+          Orders.create({
+            type: "store",
+            dropoff: "Library",
+            budget: 100,
+            deliveryFee: 30,
+            message: "1 pack of chips, 1/4 kilo of tomatoes and a detergent",
           });
         });
       } else if (status === "searching") {
@@ -795,6 +944,10 @@ var CampusRunnersDemo = (function () {
         addButton("Customer: I received it", function () {
           Orders.confirm("customer");
         });
+      }
+
+      if ((status === "choosing" || status === "buying") && !order.inQueue) {
+        addButton("Runner: I'm in queue", Orders.notifyQueue);
       }
 
       addButton("Reset demo", Orders.reset, true);

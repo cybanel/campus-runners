@@ -152,6 +152,35 @@
           el("div", "activity-card-summary", order.summary || "Custom order"),
         );
 
+        // Delivered orders: show the customer's rating, or a link to give one.
+        if (order.status === "delivered") {
+          if (order.rating) {
+            var rated = el("div", "activity-rating", "You rated");
+            var stars = el(
+              "span",
+              "rating-stars-static",
+              "\u2605\u2605\u2605\u2605\u2605".slice(0, order.rating.stars) +
+                "\u2606\u2606\u2606\u2606\u2606".slice(
+                  0,
+                  5 - order.rating.stars,
+                ),
+            );
+            stars.setAttribute(
+              "aria-label",
+              "Rated " + order.rating.stars + " out of 5 stars",
+            );
+            rated.appendChild(stars);
+            card.appendChild(rated);
+          } else {
+            var link = el("a", "activity-rate-link", "\u2605 Rate your runner");
+            link.setAttribute(
+              "href",
+              "rate.html?id=" + encodeURIComponent(order.id),
+            );
+            card.appendChild(link);
+          }
+        }
+
         var foot = el("div", "activity-card-foot");
         // Delivered orders show what was actually paid; everything else shows
         // the most the customer could pay (budget + delivery fee).

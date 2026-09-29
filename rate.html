@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusRunners - Rate your runner</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-frame">
+      <!-- Shown once after an order is delivered. No bottom nav on purpose:
+           the customer either rates or skips. -->
+      <div class="screen active signup-screen" id="screen-rate">
+        <div class="screen-scroll">
+          <div class="request-heading">Rate your runner</div>
+
+          <!-- Nothing to rate -->
+          <div id="rate-empty" hidden>
+            <div class="activity-empty">
+              There's nothing to rate right now.
+            </div>
+            <a class="checkout-btn as-link" href="home.html">Back to Home</a>
+          </div>
+
+          <!-- Already rated (opened again from Activity) -->
+          <div id="rate-done" hidden>
+            <div class="activity-empty" id="rate-done-text"></div>
+            <a class="checkout-btn as-link" href="activity.html"
+              >Back to Activity</a
+            >
+          </div>
+
+          <!-- Rating form -->
+          <div id="rate-form" hidden>
+            <div class="rate-runner">
+              <div class="runner-avatar" id="rate-avatar"></div>
+              <div class="runner-info">
+                <div class="runner-name" id="rate-name"></div>
+                <div class="runner-sub" id="rate-sub"></div>
+              </div>
+            </div>
+
+            <div class="rate-question" id="rate-question"></div>
+            <div
+              class="rate-stars"
+              id="rate-stars"
+              role="radiogroup"
+              aria-label="Rating out of 5 stars"
+            ></div>
+
+            <button
+              class="checkout-btn"
+              id="rate-submit"
+              type="button"
+              style="margin-bottom: 4px"
+            >
+              Submit rating
+            </button>
+            <button class="rate-skip" id="rate-skip" type="button">
+              Skip for now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script>
+      var Orders = CampusRunnersOrder;
+
+      var order = null;
+      var chosen = 0;
+
+      function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function initials(name) {
+        return name
+          .split(" ")
+          .map(function (w) {
+            return w.charAt(0);
+          })
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
+      }
+
+      function show(id) {
+        ["rate-empty", "rate-done", "rate-form"].forEach(function (x) {
+          document.getElementById(x).hidden = x !== id;
+        });
+      }
+
+      function starString(n) {
+        return "\u2605\u2605\u2605\u2605\u2605".slice(0, n) +
+          "\u2606\u2606\u2606\u2606\u2606".slice(0, 5 - n);
+      }
+
+      function paintStars() {
+        var btns = document.getElementById("rate-stars").children;
+        for (var i = 0; i < btns.length; i++) {
+          var on = i < chosen;
+          btns[i].className = "star-btn" + (on ? " on" : "");
+          btns[i].setAttribute("aria-checked", i + 1 === chosen ? "true" : "false");
+        }
+      }
+
+      function buildStars() {
+        var row = document.getElementById("rate-stars");
+        for (var i = 1; i <= 5; i++) {
+          (function (n) {
+            var b = el("button", "star-btn", "\u2605");
+            b.type = "button";
+            b.setAttribute("role", "radio");
+            b.setAttribute("aria-checked", "false");
+            b.setAttribute("aria-label", n + (n === 1 ? " star" : " stars"));
+            b.addEventListener("click", function () {
+              chosen = n;
+              paintStars();
+            });
+            row.appendChild(b);
+          })(i);
+        }
+      }
+
+      function submit() {
+        if (!chosen) {
+          showToast("Please tap a star to rate your runner.", { type: "error" });
+          return;
+        }
+        document.getElementById("rate-submit").disabled = true;
+        var ok = Orders.rate(order.id, chosen);
+        if (!ok) {
+          document.getElementById("rate-submit").disabled = false;
+          showToast("Couldn't save your rating. Please try again.", {
+            type: "error",
+          });
+          return;
+        }
+        showToast("Thanks for rating " + Orders.runnerFirstName(order) + "!");
+        setTimeout(function () {
+          window.location.href = "home.html";
+        }, 1200);
+      }
+
+      function skip() {
+        Orders.skipRating(order.id);
+        window.location.href = "home.html";
+      }
+
+      (function init() {
+        var id = new URLSearchParams(window.location.search).get("id");
+        order = id ? Orders.findPast(id) : Orders.pendingRating();
+
+        if (!order || order.status !== "delivered") {
+          show("rate-empty");
+          return;
+        }
+        if (order.rating) {
+          document.getElementById("rate-done-text").textContent =
+            "You rated " + Orders.runnerFirstName(order) + " " +
+            starString(order.rating.stars) + ". Thank you!";
+          show("rate-done");
+          return;
+        }
+
+        var name = Orders.runnerFirstName(order);
+        document.getElementById("rate-avatar").textContent = initials(
+          order.runner && order.runner.name ? order.runner.name : name,
+        );
+        document.getElementById("rate-name").textContent =
+          order.runner && order.runner.name ? order.runner.name : name;
+        document.getElementById("rate-sub").textContent =
+          Orders.place(order).label + " order \u00B7 " + (order.dropoff || "");
+        document.getElementById("rate-question").textContent =
+          "How was your delivery with " + name + "?";
+
+        buildStars();
+        document.getElementById("rate-submit").addEventListener("click", submit);
+        document.getElementById("rate-skip").addEventListener("click", skip);
+        show("rate-form");
+      })();
+    </script>
+  </body>
+</html>

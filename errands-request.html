@@ -282,7 +282,7 @@
       var EXAMPLES = {
         cafeteria: "e.g. 2 viands and 1 rice, plus a brownie",
         kubo: "e.g. 1 pancit canton and a bottled water",
-        store: "e.g. 1 notebook and 2 black pens",
+        store: "e.g. 2 packs of noodles, 1/4 kilo of tomatoes and a detergent",
       };
 
       // ------------------------------------------------------------------
@@ -296,7 +296,8 @@
       document.getElementById("pickup-value").textContent =
         PLACE.emoji + " " + PLACE.label;
       document.getElementById("request-message").placeholder = EXAMPLES[TYPE];
-      document.getElementById("cafeteria-notices").hidden = TYPE !== "cafeteria";
+      document.getElementById("cafeteria-notices").hidden =
+        TYPE !== "cafeteria";
       document.title = "CampusRunners - " + PLACE.label + " Errand";
 
       // ------------------------------------------------------------------
@@ -341,7 +342,9 @@
       // Fee is "known" once a valid drop-off is chosen. Before that we only
       // show the minimum.
       function getDeliveryFee() {
-        var place = matchDropoff(document.getElementById("dropoff-point").value);
+        var place = matchDropoff(
+          document.getElementById("dropoff-point").value,
+        );
         if (!place) return { amount: FEES.base, known: false, peak: false };
 
         var amount = FEES.base + FEES.zoneExtra[DROPOFF_ZONES[place]];
@@ -427,7 +430,11 @@
         if (!budgetIsValid()) {
           budgetInput.focus();
           showToast(
-            "Enter a budget between " + peso(MIN_BUDGET) + " and " + peso(MAX_BUDGET) + ".",
+            "Enter a budget between " +
+              peso(MIN_BUDGET) +
+              " and " +
+              peso(MAX_BUDGET) +
+              ".",
             { type: "error" },
           );
           return;
