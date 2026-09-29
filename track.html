@@ -21,6 +21,13 @@
             <a class="checkout-btn as-link" href="errands.html"
               >Start an errand</a
             >
+            <a
+              class="checkout-btn as-link"
+              id="track-rate-link"
+              href="rate.html"
+              hidden
+              >Rate your runner</a
+            >
           </div>
 
           <!-- Waiting for a runner: no map yet -->
@@ -214,27 +221,7 @@
 
             <!-- Order recap -->
             <div class="request-section-label">Your order</div>
-            <div class="info-card">
-              <div class="recap-line">
-                <span>Drop-off</span><strong id="recap-dropoff"></strong>
-              </div>
-              <div class="recap-line">
-                <span>Request</span><strong id="recap-summary"></strong>
-              </div>
-              <div class="recap-line">
-                <span>Budget</span><strong id="recap-budget"></strong>
-              </div>
-              <div class="recap-line">
-                <span>Delivery fee</span><strong id="recap-fee"></strong>
-              </div>
-              <div class="recap-line">
-                <span id="recap-total-label">You&rsquo;ll pay up to</span
-                ><strong id="recap-total"></strong>
-              </div>
-              <div class="recap-line">
-                <span>Payment</span><strong>Cash after delivery</strong>
-              </div>
-            </div>
+            <div class="info-card" id="recap-card"></div>
 
             <!-- Buttons that depend on the current step -->
             <div class="track-actions" id="track-actions"></div>
@@ -323,7 +310,46 @@
 
       // Where the runner sits on the prototype map for each step, plus the
       // sample caption. PLACEHOLDER positions/ETAs, not real GPS.
+      function gazeboMapStep(order) {
+        var frontDesk = Orders.isFrontDesk(order);
+        var steps = {
+          accepted: {
+            x: 75,
+            y: 120,
+            caption: "is heading to the Gazebo",
+            eta: "About 4 min away (sample)",
+          },
+          picking_up: order.pickupPhotos
+            ? {
+                x: 95,
+                y: 70,
+                caption: "has collected your parcels",
+                eta: "About to head to you",
+              }
+            : {
+                x: 95,
+                y: 70,
+                caption: "is at the Gazebo",
+                eta: "Finding your parcels",
+              },
+          on_the_way: {
+            x: 170,
+            y: 105,
+            caption: "is on the way to you",
+            eta: "About 3 min away (sample)",
+          },
+          arrived: {
+            x: 238,
+            y: 134,
+            caption: frontDesk ? "left your parcels" : "is here",
+            eta: frontDesk ? "At the front desk" : "Meet them outside",
+          },
+        };
+        return steps[order.status];
+      }
+
       function mapStep(order) {
+        if (Orders.isGazebo(order)) return gazeboMapStep(order);
         var where = Orders.place(order).phrase;
         var steps = {
           accepted: {
@@ -363,10 +389,43 @@
             eta: "Meet them outside",
           },
         };
-        return steps[order.status];
+        var step = steps[order.status];
+        // A long queue at the counter: reassure the customer.
+        if (
+          order.inQueue &&
+          (order.status === "choosing" || order.status === "buying")
+        ) {
+          step.caption = "is in the queue at " + where;
+          step.eta = "The line is long, hang tight";
+        }
+        return step;
       }
 
       function timelineFor(order) {
+        if (Orders.isGazebo(order)) {
+          var flow = Orders.flowFor(order);
+          var pickedUp =
+            order.pickupPhotos ||
+            flow.indexOf(order.status) > flow.indexOf("picking_up");
+          return [
+            { key: "accepted", label: "Runner accepted" },
+            {
+              key: "picking_up",
+              label: pickedUp
+                ? "Collected " +
+                  Orders.parcelWord((order.parcels || []).length) +
+                  " from the Gazebo"
+                : "Picking up your parcels",
+            },
+            { key: "on_the_way", label: "On the way to you" },
+            {
+              key: "arrived",
+              label: Orders.isFrontDesk(order)
+                ? "Parcels left at the front desk"
+                : "Runner is here",
+            },
+          ];
+        }
         var where = Orders.place(order).phrase;
         return [
           { key: "accepted", label: "Runner accepted" },
@@ -403,6 +462,49 @@
       // What to nudge the customer to do in Messages at each step.
       function promptFor(order) {
         var name = Orders.runnerFirstName(order);
+        if (Orders.isGazebo(order)) {
+          if (order.status === "accepted") {
+            return {
+              title: "Say hi to " + name,
+              sub: "Open Messages to chat with your runner.",
+            };
+          }
+          if (order.status === "picking_up") {
+            return order.pickupPhotos
+              ? {
+                  title: "Pickup photos sent",
+                  sub: "See the photos of your parcels in Messages.",
+                }
+              : {
+                  title: name + " is at the Gazebo",
+                  sub: "Pickup photos will show up in Messages.",
+                };
+          }
+          if (order.status === "on_the_way") {
+            return {
+              title: name + " is on the way",
+              sub: "Message them if you need to.",
+            };
+          }
+          if (Orders.isFrontDesk(order)) {
+            return {
+              title: "Your parcels are at the front desk",
+              sub:
+                "See the delivery photo in Messages. Pay " +
+                name +
+                " \u20B1" +
+                (order.payTotal || 0) +
+                " through GCash / Online.",
+            };
+          }
+          return {
+            title: name + " is here",
+            sub:
+              "Meet them outside at " +
+              (order.dropoff || "your drop-off point") +
+              ".",
+          };
+        }
         if (order.status === "accepted") {
           return {
             title: "Say hi to " + name,
@@ -499,11 +601,12 @@
         document.getElementById("prompt-sub").textContent = prompt.sub;
 
         // Timeline
-        var currentIndex = Orders.FLOW.indexOf(order.status);
+        var flow = Orders.flowFor(order);
+        var currentIndex = flow.indexOf(order.status);
         var list = document.getElementById("timeline");
         list.innerHTML = "";
         timelineFor(order).forEach(function (item) {
-          var idx = Orders.FLOW.indexOf(item.key);
+          var idx = flow.indexOf(item.key);
           var state =
             idx < currentIndex
               ? "done"
@@ -523,27 +626,162 @@
           order.runner.name,
         );
         document.getElementById("runner-name").textContent = order.runner.name;
-        document.getElementById("recap-dropoff").textContent =
-          order.dropoff || "\u2014";
-        document.getElementById("recap-summary").textContent =
-          order.summary || "Custom order";
-
-        var extra = order.extraApproved || 0;
-        document.getElementById("recap-budget").textContent =
-          "\u20B1" +
-          (order.budget || 0) +
-          (extra ? " + \u20B1" + extra + " approved" : "");
-        document.getElementById("recap-fee").textContent =
-          "\u20B1" + (order.deliveryFee || 0);
-
-        var receiptKnown = order.payTotal != null;
-        document.getElementById("recap-total-label").textContent = receiptKnown
-          ? "Amount to pay"
-          : "You\u2019ll pay up to";
-        document.getElementById("recap-total").textContent =
-          "\u20B1" + (receiptKnown ? order.payTotal : Orders.maxToPay(order));
+        renderRecap(order);
 
         renderActions(order);
+      }
+
+      // The order recap: one row per fact, built the same way for every type.
+      function recapRows(order) {
+        var rows = [["Drop-off", order.dropoff || "\u2014"]];
+        var fee = "\u20B1" + (order.deliveryFee || 0);
+
+        if (Orders.isGazebo(order)) {
+          var G = Orders.GAZEBO;
+          var size = G.sizes[order.parcelSize];
+          rows.push([
+            "Rider at Gazebo until",
+            Orders.formatClock(order.riderUntil) || "\u2014",
+          ]);
+          (order.parcels || []).forEach(function (p, i) {
+            rows.push([
+              "Parcel " + (i + 1),
+              p.courier +
+                " \u00B7 " +
+                p.name +
+                " \u00B7 " +
+                (p.isCod ? "COD \u20B1" + p.codAmount : "Already paid"),
+            ]);
+          });
+          rows.push(["Parcel size", size ? size.label : "\u2014"]);
+          rows.push(["COD amount", "\u20B1" + (order.codTotal || 0)]);
+          rows.push(["Delivery fee", fee]);
+          rows.push(["Total to pay", "\u20B1" + Orders.maxToPay(order)]);
+          rows.push([
+            "Handover",
+            G.handovers[order.handover] || G.handovers.meet,
+          ]);
+          rows.push([
+            "Payment",
+            G.payments[order.paymentMethod] || G.payments.cash,
+          ]);
+          return rows;
+        }
+
+        var extra = order.extraApproved || 0;
+        var receiptKnown = order.payTotal != null;
+        rows.push(["Request", order.summary || "Custom order"]);
+        rows.push([
+          "Budget",
+          "\u20B1" +
+            (order.budget || 0) +
+            (extra ? " + \u20B1" + extra + " approved" : ""),
+        ]);
+        rows.push(["Delivery fee", fee]);
+        rows.push([
+          receiptKnown ? "Amount to pay" : "You\u2019ll pay up to",
+          "\u20B1" + (receiptKnown ? order.payTotal : Orders.maxToPay(order)),
+        ]);
+        rows.push(["Payment", "Cash after delivery"]);
+        return rows;
+      }
+
+      function renderRecap(order) {
+        var card = document.getElementById("recap-card");
+        card.innerHTML = "";
+        recapRows(order).forEach(function (row) {
+          var line = el("div", "recap-line");
+          line.appendChild(el("span", "", row[0]));
+          line.appendChild(el("strong", "", row[1]));
+          card.appendChild(line);
+        });
+      }
+
+      function renderGazeboActions(box, order, name) {
+        var pay =
+          order.payTotal != null ? order.payTotal : Orders.maxToPay(order);
+        var how =
+          order.paymentMethod === "online"
+            ? "through GCash / Online using the details " +
+              name +
+              " sends in Messages"
+            : "in cash";
+
+        if (order.status === "picking_up" || order.status === "on_the_way") {
+          box.appendChild(
+            el(
+              "div",
+              "track-note",
+              name +
+                " is already picking up your parcels (and may have paid the courier), so it can\u2019t be cancelled here. Message " +
+                name +
+                " if something is wrong.",
+            ),
+          );
+          return;
+        }
+
+        if (order.status !== "arrived") return;
+
+        // Front desk: nothing to tap. The order closes when the runner
+        // confirms the online payment.
+        if (Orders.isFrontDesk(order)) {
+          box.appendChild(
+            el(
+              "div",
+              "track-note",
+              "Your parcels were left at the front desk. Pay " +
+                name +
+                " \u20B1" +
+                pay +
+                " " +
+                how +
+                ". Your order closes once " +
+                name +
+                " confirms your payment.",
+            ),
+          );
+          return;
+        }
+
+        if (!order.customerConfirmed) {
+          var received = el("button", "checkout-btn", "I received my parcels");
+          received.type = "button";
+          received.addEventListener("click", function () {
+            Orders.confirm("customer");
+            showToast(
+              "Thanks! Waiting for " + name + " to confirm your payment.",
+            );
+          });
+          box.appendChild(received);
+          box.appendChild(
+            el(
+              "div",
+              "track-note",
+              "Pay " +
+                name +
+                " \u20B1" +
+                pay +
+                " " +
+                how +
+                " (COD amounts plus the delivery fee). Your order closes once " +
+                name +
+                " confirms too.",
+            ),
+          );
+        } else {
+          box.appendChild(
+            el(
+              "div",
+              "track-note",
+              "Thanks! Waiting for " +
+                name +
+                " to confirm they received your \u20B1" +
+                pay +
+                " payment.",
+            ),
+          );
+        }
       }
 
       function renderActions(order) {
@@ -620,6 +858,11 @@
           return;
         }
 
+        if (Orders.isGazebo(order)) {
+          renderGazeboActions(box, order, name);
+          return;
+        }
+
         if (
           order.status === "buying" ||
           order.status === "receipt" ||
@@ -685,6 +928,13 @@
 
         if (!order) {
           cancelPanelOpen = false;
+          var ratingOrder = Orders.pendingRating();
+          var ratingLink = document.getElementById("track-rate-link");
+          ratingLink.hidden = !ratingOrder;
+          if (ratingOrder) {
+            ratingLink.href =
+              "rate.html?id=" + encodeURIComponent(ratingOrder.id);
+          }
           show("track-empty", true);
           show("track-searching", false);
           show("track-main", false);

@@ -179,6 +179,44 @@
         return wrap;
       }
 
+      // Gazebo proof photos: one tile per parcel at pickup, one at delivery.
+      // Proof only, so there is nothing to tap or approve.
+      function proofMessage(msg) {
+        var wrap = el("div", "chat-msg runner wide");
+        wrap.appendChild(el("div", "", msg.text));
+        wrap.appendChild(
+          el(
+            "div",
+            "proof-label",
+            msg.kind === "delivery"
+              ? "Delivery proof"
+              : "Pickup proof at the Gazebo",
+          ),
+        );
+
+        var photos = msg.photos || [];
+        var grid = el(
+          "div",
+          "photo-grid" + (photos.length === 1 ? " single" : ""),
+        );
+        photos.forEach(function (p) {
+          var tile = el("div", "photo-tile");
+          tile.appendChild(el("div", "photo-emoji", p.emoji));
+          tile.appendChild(el("div", "photo-name", p.courier));
+          tile.appendChild(el("div", "photo-price", p.name));
+          if (p.cod)
+            tile.appendChild(el("div", "photo-price", "COD \u20B1" + p.cod));
+          grid.appendChild(tile);
+        });
+        wrap.appendChild(grid);
+        wrap.appendChild(
+          el("div", "photo-hint", "Sample photos for the prototype"),
+        );
+
+        wrap.appendChild(el("div", "chat-time", timeLabel(msg.at)));
+        return wrap;
+      }
+
       // Runner asks the customer to confirm the order. "Looks good" is just a
       // record: the real agreement happens in the chat above it.
       function confirmMessage(msg, order) {
@@ -351,6 +389,8 @@
             thread.appendChild(el("div", "chat-system", msg.text));
           } else if (msg.type === "photos") {
             thread.appendChild(photosMessage(msg));
+          } else if (msg.type === "proof") {
+            thread.appendChild(proofMessage(msg));
           } else if (msg.type === "confirm") {
             thread.appendChild(confirmMessage(msg, order));
           } else if (msg.type === "overbudget") {

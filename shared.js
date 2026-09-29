@@ -109,6 +109,9 @@ var CampusRunnersOrder = (function () {
     cafeteria: { label: "Cafeteria", phrase: "the cafeteria", emoji: "🍛" },
     kubo: { label: "Kubo", phrase: "Kubo", emoji: "🍜" },
     store: { label: "Store", phrase: "the store", emoji: "🏪" },
+    // Gazebo Parcel Pick Up is NOT a shopping errand: the runner only
+    // collects parcels that are already waiting at the gazebo.
+    gazebo: { label: "Gazebo", phrase: "the Gazebo", emoji: "📦" },
   };
 
   var FLOW = [
@@ -121,9 +124,69 @@ var CampusRunnersOrder = (function () {
     "arrived",
   ];
 
+  // Gazebo orders have no budget, no "Looks good" step and no receipt, so
+  // they use a shorter flow. Pickup photos are proof only: the customer
+  // does not have to approve them.
+  var FLOW_GAZEBO = [
+    "searching",
+    "accepted",
+    "picking_up",
+    "on_the_way",
+    "arrived",
+  ];
+
+  // ------------------------------------------------------------------
+  // Gazebo Parcel Pick Up: PLACEHOLDER numbers and lists.
+  // *** Everything you may want to change lives in this one block. ***
+  // ------------------------------------------------------------------
+  var GAZEBO = {
+    maxParcels: 5, // PLACEHOLDER cap on parcels per request
+    warnMinutes: 15, // soft warning if the rider leaves within this many minutes
+    // One size for the whole pile of parcels. The fee is NOT per parcel.
+    sizes: {
+      small: { label: "Small", fee: 30 },
+      medium: { label: "Medium", fee: 35 },
+      large: { label: "Large", fee: 40 },
+    },
+    couriers: ["SPX", "Lazada Express", "J&T", "Flash", "TikTok Shop", "Other"],
+    handovers: {
+      meet: "Meet me outside",
+      front_desk: "Leave at the front desk",
+    },
+    payments: { cash: "Cash", online: "GCash / Online" },
+    // Front desk is only offered for these drop-offs.
+    frontDeskDropoffs: [
+      "Cattleya Dormitory",
+      "Cadena de Amor Dormitory",
+      "Waling-Waling Dormitory",
+      "Sampaguita Dormitory",
+    ],
+    // The 18 campus drop-off points minus the Gazebo (it is the pickup).
+    dropoffs: [
+      "Dentistry Department",
+      "SA Park",
+      "College of Business",
+      "College of Science and Technology",
+      "Pioneer",
+      "College of Medicine",
+      "Library",
+      "College of Nursing",
+      "College of Theology",
+      "College of Education",
+      "College of Arts and Humanities",
+      "AUP Gym",
+      "AUP Main Gate",
+      "Cattleya Dormitory",
+      "Cadena de Amor Dormitory",
+      "Waling-Waling Dormitory",
+      "Sampaguita Dormitory",
+    ],
+  };
+
   var LABELS = {
     searching: "Looking for a runner",
     accepted: "Runner accepted",
+    picking_up: "Picking up your parcels",
     choosing: "Confirming your order",
     buying: "Buying your order",
     receipt: "Receipt sent",
@@ -146,9 +209,9 @@ var CampusRunnersOrder = (function () {
       { emoji: "🍪", name: "Biscuits", price: 15 },
     ],
     store: [
-      { emoji: "🍟", name: "Potato chips", price: 25 },
-      { emoji: "🍅", name: "Tomatoes (1/4 kilo)", price: 30 },
-      { emoji: "🧴", name: "Detergent sachet", price: 12 },
+      { emoji: "📓", name: "Notebook", price: 35 },
+      { emoji: "🖊️", name: "Ballpen", price: 10 },
+      { emoji: "📁", name: "Folder", price: 8 },
     ],
   };
 
@@ -203,14 +266,63 @@ var CampusRunnersOrder = (function () {
     return (order.budget || 0) + (order.extraApproved || 0);
   }
 
-  // The most the customer could pay: item limit + delivery fee.
+  // ---- Gazebo helpers ----
+  function isGazebo(order) {
+    return !!order && order.type === "gazebo";
+  }
+
+  function isFrontDesk(order) {
+    return isGazebo(order) && order.handover === "front_desk";
+  }
+
+  function flowFor(order) {
+    return isGazebo(order) ? FLOW_GAZEBO : FLOW;
+  }
+
+  function parcelWord(n) {
+    return n + (n === 1 ? " parcel" : " parcels");
+  }
+
+  // "14:00" -> "2:00 PM". Returns "" for anything that isn't HH:MM.
+  function formatClock(hhmm) {
+    var m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || "");
+    if (!m) return "";
+    var h = parseInt(m[1], 10);
+    if (h > 23) return "";
+    return (h % 12 || 12) + ":" + m[2] + " " + (h >= 12 ? "PM" : "AM");
+  }
+
+  // Matches text to an official Gazebo drop-off (case-insensitive) or "".
+  function matchGazeboDropoff(text) {
+    var wanted = (text || "").trim().toLowerCase();
+    for (var i = 0; i < GAZEBO.dropoffs.length; i++) {
+      if (GAZEBO.dropoffs[i].toLowerCase() === wanted)
+        return GAZEBO.dropoffs[i];
+    }
+    return "";
+  }
+
+  // The most the customer could pay. For Gazebo orders the total is exact
+  // (COD amounts + one delivery fee), so it is also the amount to pay.
   function maxToPay(order) {
+    if (isGazebo(order)) return order.total || 0;
     return spendLimit(order) + (order.deliveryFee || 0);
+  }
+
+  // Wording for the money line on Activity: "Paid ₱X", "Total ₱X" (exact)
+  // or "Up to ₱X" (budget orders).
+  function amountLabel(order) {
+    if (order.status === "delivered" && order.paidTotal != null) {
+      return { prefix: "Paid ", amount: order.paidTotal };
+    }
+    if (isGazebo(order)) return { prefix: "Total ", amount: order.total || 0 };
+    return { prefix: "Up to ", amount: order.total || 0 };
   }
 
   // Creates the active order. Returns null if one is already in progress.
   function create(details) {
     if (get()) return null;
+    if (details && details.type === "gazebo") return createGazebo(details);
     var now = Date.now();
     var budget = details.budget || 0;
     var fee = details.deliveryFee || 0;
@@ -244,6 +356,99 @@ var CampusRunnersOrder = (function () {
     return order;
   }
 
+  // Creates a Gazebo Parcel Pick Up order. Everything is re-checked here (not
+  // just in the form), and the fee and totals are recalculated from the
+  // config. Returns null if the details are invalid.
+  function createGazebo(details) {
+    var size = GAZEBO.sizes[details.parcelSize] ? details.parcelSize : "";
+    var dropoff = matchGazeboDropoff(details.dropoff);
+    var riderUntil =
+      /^\d{1,2}:\d{2}$/.test(details.riderUntil || "") &&
+      formatClock(details.riderUntil)
+        ? details.riderUntil
+        : "";
+
+    var input = details.parcels || [];
+    if (!size || !dropoff || !riderUntil) return null;
+    if (!input.length || input.length > GAZEBO.maxParcels) return null;
+
+    var parcels = [];
+    var codTotal = 0;
+    for (var i = 0; i < input.length; i++) {
+      var p = input[i] || {};
+      var name = String(p.name || "")
+        .trim()
+        .slice(0, 60);
+      var courier = String(p.courier || "")
+        .trim()
+        .slice(0, 30);
+      var isCod = !!p.isCod;
+      var amount = isCod ? Math.floor(Number(p.codAmount)) : 0;
+      if (!name || !courier) return null;
+      if (isCod && !(amount >= 1)) return null;
+      parcels.push({
+        name: name,
+        courier: courier,
+        isCod: isCod,
+        codAmount: amount,
+      });
+      codTotal += amount;
+    }
+
+    // Front desk only for dorms, and front desk always means pay online.
+    var canFrontDesk = GAZEBO.frontDeskDropoffs.indexOf(dropoff) !== -1;
+    var handover =
+      details.handover === "front_desk" && canFrontDesk ? "front_desk" : "meet";
+    var paymentMethod =
+      handover === "front_desk" || details.paymentMethod === "online"
+        ? "online"
+        : "cash";
+
+    var now = Date.now();
+    var fee = GAZEBO.sizes[size].fee;
+    var total = codTotal + fee;
+    var order = {
+      id: "CR-" + now.toString(36).toUpperCase(),
+      type: "gazebo",
+      createdAt: now,
+      searchStartedAt: now,
+      status: "searching",
+      dropoff: dropoff,
+      budget: 0,
+      deliveryFee: fee,
+      total: total, // exact: COD amounts + delivery fee
+      message: String(details.message || "")
+        .trim()
+        .slice(0, 300),
+      summary:
+        parcelWord(parcels.length) +
+        (codTotal ? " · COD ₱" + codTotal : " · Already paid"),
+      runner: null,
+      customerConfirmed: false,
+      runnerConfirmed: false,
+      chat: [],
+      inQueue: false,
+      photosSent: false,
+      confirmAsked: false,
+      itemsConfirmed: false,
+      overBudget: null,
+      extraApproved: 0,
+      receiptTotal: null,
+      payTotal: total,
+      // Gazebo-only fields
+      parcels: parcels,
+      parcelSize: size,
+      riderUntil: riderUntil,
+      handover: handover,
+      paymentMethod: paymentMethod,
+      codTotal: codTotal,
+      pickupPhotos: false,
+      deliveryPhoto: false,
+    };
+    save(order);
+    return order;
+  }
+
   // Moves the active order into the past list with a final status.
   function archive(order, status, extra) {
     order.status = status;
@@ -262,6 +467,37 @@ var CampusRunnersOrder = (function () {
     emit();
   }
 
+  function findPast(id) {
+    return getPast().find(function (order) { return order && order.id === id; }) || null;
+  }
+
+  function pendingRating() {
+    return getPast().find(function (order) {
+      return order && order.status === "delivered" && !order.rating && !order.ratingSkippedAt;
+    }) || null;
+  }
+
+  function rate(id, stars) {
+    stars = Number(stars);
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) return false;
+    var past = getPast();
+    var order = past.find(function (item) { return item && item.id === id; });
+    if (!order || order.status !== "delivered" || order.rating) return false;
+    order.rating = { stars: stars, submittedAt: Date.now() };
+    write(PAST_KEY, past);
+    emit();
+    return true;
+  }
+
+  function skipRating(id) {
+    var past = getPast();
+    var order = past.find(function (item) { return item && item.id === id; });
+    if (!order || order.status !== "delivered" || order.rating) return false;
+    order.ratingSkippedAt = Date.now();
+    write(PAST_KEY, past);
+    emit();
+    return true;
+  }
   function runnerFirstName(order) {
     return order && order.runner
       ? order.runner.name.split(" ")[0]
@@ -273,6 +509,98 @@ var CampusRunnersOrder = (function () {
     msg.id = order.chat.length + 1;
     msg.at = Date.now();
     order.chat.push(msg);
+  }
+
+  function payLine(order) {
+    var parts = order.codTotal
+      ? " (COD ₱" +
+        order.codTotal +
+        " + delivery fee ₱" +
+        (order.deliveryFee || 0) +
+        ")"
+      : " (delivery fee)";
+    return "Amount to pay: ₱" + (order.payTotal || 0) + parts + ".";
+  }
+
+  // Automatic runner messages for Gazebo orders (demo panel triggers them).
+  function gazeboStatusMessages(order, key, name, dropoff) {
+    var n = (order.parcels || []).length;
+    if (key === "accepted") {
+      pushMessage(order, {
+        from: "system",
+        type: "text",
+        text: name + " accepted your order.",
+      });
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text:
+          "Hi! I'm heading to the Gazebo now to pick up your " +
+          (n === 1 ? "parcel" : "parcels") +
+          ". I'll send you photos as proof once I have them.",
+      });
+    } else if (key === "picking_up") {
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text:
+          "I'm at the Gazebo now. Looking for your " +
+          (n === 1 ? "parcel" : "parcels") +
+          ".",
+      });
+    } else if (key === "on_the_way") {
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text:
+          "Got it, I'm on my way to " +
+          dropoff +
+          "!" +
+          (isFrontDesk(order)
+            ? " I'll leave your parcels at the front desk."
+            : ""),
+      });
+    } else if (key === "arrived") {
+      var frontDesk = isFrontDesk(order);
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text: frontDesk
+          ? "I'm at " +
+            dropoff +
+            ". I'm leaving your parcels at the front desk now."
+          : "I'm here at " + dropoff + ". I'll wait outside, come find me!",
+      });
+      // Delivery proof: separate from the pickup photos at the Gazebo.
+      pushMessage(order, {
+        from: "runner",
+        type: "proof",
+        kind: "delivery",
+        photos: [
+          {
+            emoji: frontDesk ? "🚪" : "🤝",
+            courier: frontDesk
+              ? "Left at the front desk"
+              : "Handed over outside",
+            name: dropoff,
+            cod: 0,
+          },
+        ],
+        text: frontDesk
+          ? "Here's a photo of your parcels at the front desk."
+          : "Here's a photo of your parcels.",
+      });
+      order.deliveryPhoto = true;
+      pushMessage(order, {
+        from: "runner",
+        type: "text",
+        text:
+          payLine(order) +
+          (order.paymentMethod === "online"
+            ? " Please pay through GCash / Online. I'll send my details here. I'll close the order once I've received your payment."
+            : " Please prepare exact cash if you can."),
+      });
+    }
   }
 
   function setStatus(key) {
@@ -287,6 +615,12 @@ var CampusRunnersOrder = (function () {
     var name = runnerFirstName(order);
     var where = place(order).phrase;
     var dropoff = order.dropoff || "your drop-off point";
+
+    if (isGazebo(order)) {
+      gazeboStatusMessages(order, key, name, dropoff);
+      save(order);
+      return;
+    }
 
     if (key === "accepted") {
       pushMessage(order, {
@@ -417,6 +751,49 @@ var CampusRunnersOrder = (function () {
     save(order);
   }
 
+  // Runner sends one pickup photo per parcel (demo panel triggers this).
+  // Proof only: the customer does not have to approve it.
+  function sendPickupPhotos() {
+    var order = get();
+    if (!isGazebo(order) || order.status !== "picking_up" || order.pickupPhotos)
+      return;
+    var parcels = order.parcels || [];
+    var codCount = parcels.filter(function (p) {
+      return p.isCod;
+    }).length;
+    var text =
+      "I found your " +
+      (parcels.length === 1 ? "parcel" : "parcels") +
+      " at the Gazebo. Here " +
+      (parcels.length === 1
+        ? "is the pickup photo."
+        : "are the pickup photos.");
+    if (order.codTotal > 0) {
+      text +=
+        " I paid ₱" +
+        order.codTotal +
+        " to the courier for the COD " +
+        (codCount === 1 ? "parcel" : "parcels") +
+        ".";
+    }
+    pushMessage(order, {
+      from: "runner",
+      type: "proof",
+      kind: "pickup",
+      photos: parcels.map(function (p) {
+        return {
+          emoji: "📦",
+          courier: p.courier,
+          name: p.name,
+          cod: p.isCod ? p.codAmount : 0,
+        };
+      }),
+      text: text,
+    });
+    order.pickupPhotos = true;
+    save(order);
+  }
+
   // The "Looks good" button: a record that the customer agreed to the
   // order. The actual agreeing happens in the chat.
   function confirmItems() {
@@ -528,6 +905,10 @@ var CampusRunnersOrder = (function () {
     var order = get();
     if (!order) return;
 
+    // Gazebo: the runner can't leave the Gazebo without sending pickup photos.
+    if (isGazebo(order) && order.status === "picking_up" && !order.pickupPhotos)
+      return;
+
     // The runner can't start buying until the customer taps "Looks good".
     if (order.status === "choosing" && !order.itemsConfirmed) return;
 
@@ -539,8 +920,9 @@ var CampusRunnersOrder = (function () {
       save(order);
     }
 
-    var i = FLOW.indexOf(order.status);
-    if (i >= 0 && i < FLOW.length - 1) setStatus(FLOW[i + 1]);
+    var flow = flowFor(order);
+    var i = flow.indexOf(order.status);
+    if (i >= 0 && i < flow.length - 1) setStatus(flow[i + 1]);
   }
 
   // Cancelling rules:
@@ -568,6 +950,13 @@ var CampusRunnersOrder = (function () {
       archive(order, "cancelled", { cancelReason: reason });
       return { ok: true };
     }
+    if (isGazebo(order)) {
+      return {
+        ok: false,
+        message:
+          "Your runner is already picking up your parcels (and may have paid the courier), so it can't be cancelled here. Message your runner if something is wrong.",
+      };
+    }
     return {
       ok: false,
       message:
@@ -580,9 +969,14 @@ var CampusRunnersOrder = (function () {
   function confirm(side) {
     var order = get();
     if (!order || order.status !== "arrived") return false;
-    if (side === "customer") order.customerConfirmed = true;
+    if (side === "customer") {
+      // "Leave at the front desk": nothing for the customer to tap.
+      if (isFrontDesk(order)) return false;
+      order.customerConfirmed = true;
+    }
     if (side === "runner") order.runnerConfirmed = true;
-    if (order.customerConfirmed && order.runnerConfirmed) {
+    var customerDone = order.customerConfirmed || isFrontDesk(order);
+    if (customerDone && order.runnerConfirmed) {
       archive(order, "delivered", { paidTotal: order.payTotal });
     } else {
       save(order);
@@ -603,8 +997,43 @@ var CampusRunnersOrder = (function () {
     save(order);
   }
 
+  // Gazebo wording for the steps that differ from the shopping flow.
+  function gazeboCardText(order, name) {
+    var dropoff = order.dropoff || "your drop-off point";
+    var n = (order.parcels || []).length;
+    if (order.status === "picking_up") {
+      if (order.pickupPhotos) {
+        return {
+          title: name + " collected your " + (n === 1 ? "parcel" : "parcels"),
+          sub: "Pickup photos are in Messages",
+        };
+      }
+      return {
+        title: name + " is at the Gazebo",
+        sub: "Picking up your " + (n === 1 ? "parcel" : "parcels"),
+      };
+    }
+    if (order.status === "arrived") {
+      if (isFrontDesk(order)) {
+        return {
+          title: name + " left your parcels",
+          sub: "At the front desk · pay ₱" + (order.payTotal || 0) + " online",
+        };
+      }
+      return {
+        title: name + " is here",
+        sub: "Meet them outside at " + dropoff,
+      };
+    }
+    return null;
+  }
+
   // Customer-facing wording for the current step (Home card, Track, etc.)
   function cardText(order) {
+    if (isGazebo(order)) {
+      var g = gazeboCardText(order, runnerFirstName(order));
+      if (g) return g;
+    }
     var name = runnerFirstName(order);
     var dropoff = order.dropoff || "your drop-off point";
     var p = place(order);
@@ -680,75 +1109,6 @@ var CampusRunnersOrder = (function () {
     emit();
   }
 
-  // ---- Rating (customer rates the runner after delivery) ----
-  // The rating is saved on the finished order in the past list:
-  //   rating: { stars: 1-5, ratedAt }   or   ratingSkipped: true
-  // ratePrompted is a one-time flag so the customer is only sent to
-  // rate.html automatically once (Activity keeps a "Rate your runner" link).
-  // PLACEHOLDERS:
-  var RATING_PROMPT_WINDOW_MS = 10 * 60 * 1000; // only auto-prompt for orders finished in the last 10 min
-
-  function findPast(id) {
-    var past = getPast();
-    for (var i = 0; i < past.length; i++) {
-      if (past[i].id === id) return past[i];
-    }
-    return null;
-  }
-
-  // Changes one past order and saves the list. Returns false if not found.
-  function updatePast(id, fn, silent) {
-    var past = getPast();
-    for (var i = 0; i < past.length; i++) {
-      if (past[i].id === id) {
-        fn(past[i]);
-        write(PAST_KEY, past);
-        if (!silent) emit();
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // Newest delivered order that has not been rated or skipped yet.
-  function pendingRating() {
-    var past = getPast();
-    for (var i = 0; i < past.length; i++) {
-      var o = past[i];
-      if (o.status === "delivered" && !o.rating && !o.ratingSkipped) return o;
-    }
-    return null;
-  }
-
-  function rate(id, stars) {
-    stars = parseInt(stars, 10);
-    if (isNaN(stars) || stars < 1 || stars > 5) return false;
-    var target = findPast(id);
-    if (!target || target.status !== "delivered" || target.rating) return false;
-    return updatePast(id, function (o) {
-      o.rating = {
-        stars: stars,
-        ratedAt: Date.now(),
-      };
-    });
-  }
-
-  function skipRating(id) {
-    return updatePast(id, function (o) {
-      o.ratingSkipped = true;
-    });
-  }
-
-  function markRatePrompted(id) {
-    return updatePast(
-      id,
-      function (o) {
-        o.ratePrompted = true;
-      },
-      true,
-    );
-  }
-
   function subscribe(fn) {
     subscribers.push(fn);
   }
@@ -761,12 +1121,26 @@ var CampusRunnersOrder = (function () {
   return {
     STATUS_LABELS: LABELS,
     FLOW: FLOW,
+    FLOW_GAZEBO: FLOW_GAZEBO,
+    flowFor: flowFor,
+    GAZEBO: GAZEBO,
+    isGazebo: isGazebo,
+    isFrontDesk: isFrontDesk,
+    parcelWord: parcelWord,
+    formatClock: formatClock,
+    matchGazeboDropoff: matchGazeboDropoff,
+    amountLabel: amountLabel,
+    sendPickupPhotos: sendPickupPhotos,
     PLACES: PLACES,
     place: place,
     spendLimit: spendLimit,
     maxToPay: maxToPay,
     get: get,
     getPast: getPast,
+    findPast: findPast,
+    pendingRating: pendingRating,
+    rate: rate,
+    skipRating: skipRating,
     create: create,
     setStatus: setStatus,
     advance: advance,
@@ -785,34 +1159,7 @@ var CampusRunnersOrder = (function () {
     runnerFirstName: runnerFirstName,
     reset: reset,
     subscribe: subscribe,
-    findPast: findPast,
-    pendingRating: pendingRating,
-    rate: rate,
-    skipRating: skipRating,
-    markRatePrompted: markRatePrompted,
-    RATING_PROMPT_WINDOW_MS: RATING_PROMPT_WINDOW_MS,
   };
-})();
-
-// ---- Rating prompt ----
-// Right after an order is delivered, send the customer to rate.html once,
-// whatever page they are on. Skipping keeps the "Rate your runner" link
-// on the Activity card.
-(function () {
-  function check() {
-    if (/rate\.html$/.test(window.location.pathname)) return;
-    var o = CampusRunnersOrder.pendingRating();
-    if (!o || o.ratePrompted) return;
-    if (
-      Date.now() - (o.completedAt || 0) >
-      CampusRunnersOrder.RATING_PROMPT_WINDOW_MS
-    )
-      return;
-    CampusRunnersOrder.markRatePrompted(o.id);
-    window.location.href = "rate.html?id=" + encodeURIComponent(o.id);
-  }
-  CampusRunnersOrder.subscribe(check);
-  check();
 })();
 
 // ---- Demo runner panel ----
@@ -876,8 +1223,7 @@ var CampusRunnersDemo = (function () {
       );
 
       if (!order) {
-        // PLACEHOLDER sample orders, one per errand type.
-        addButton("Create a sample cafeteria order", function () {
+        addButton("Create a sample order", function () {
           Orders.create({
             type: "cafeteria",
             dropoff: "Library",
@@ -886,31 +1232,72 @@ var CampusRunnersDemo = (function () {
             message: "2 viands and 1 rice please",
           });
         });
-        addButton("Create a sample Kubo order", function () {
+        // PLACEHOLDER sample Gazebo orders (one per handover method).
+        addButton("Create a sample Gazebo order", function () {
           Orders.create({
-            type: "kubo",
+            type: "gazebo",
             dropoff: "Library",
-            budget: 100,
-            deliveryFee: 30,
-            message: "1 pancit canton and a bottled water",
+            riderUntil: "14:00",
+            parcels: [
+              {
+                name: "Juan Dela Cruz",
+                courier: "SPX",
+                isCod: false,
+                codAmount: 0,
+              },
+              {
+                name: "Juan Dela Cruz",
+                courier: "Lazada Express",
+                isCod: true,
+                codAmount: 500,
+              },
+            ],
+            parcelSize: "medium",
+            message: "Please look for the parcels under Juan Dela Cruz.",
+            handover: "meet",
+            paymentMethod: "cash",
           });
         });
-        addButton("Create a sample store order", function () {
+        addButton("Create a sample Gazebo order (front desk)", function () {
           Orders.create({
-            type: "store",
-            dropoff: "Library",
-            budget: 100,
-            deliveryFee: 30,
-            message: "1 pack of chips, 1/4 kilo of tomatoes and a detergent",
+            type: "gazebo",
+            dropoff: "Cattleya Dormitory",
+            riderUntil: "14:00",
+            parcels: [
+              {
+                name: "Juan Dela Cruz",
+                courier: "SPX",
+                isCod: true,
+                codAmount: 350,
+              },
+              {
+                name: "Juan Dela Cruz",
+                courier: "TikTok Shop",
+                isCod: true,
+                codAmount: 250,
+              },
+            ],
+            parcelSize: "medium",
+            message: "",
+            handover: "front_desk",
+            paymentMethod: "online",
           });
         });
       } else if (status === "searching") {
         addButton("Runner accepts", Orders.advance);
       } else if (status === "accepted") {
         addButton(
-          "Runner reached " + Orders.place(order).label,
+          Orders.isGazebo(order)
+            ? "Runner reached the Gazebo"
+            : "Runner reached " + Orders.place(order).label,
           Orders.advance,
         );
+      } else if (status === "picking_up") {
+        if (!order.pickupPhotos) {
+          addButton("Runner sends pickup photos", Orders.sendPickupPhotos);
+        } else {
+          addButton("Runner heads to drop-off", Orders.advance);
+        }
       } else if (status === "choosing") {
         if (!order.photosSent) {
           addButton("Runner sends photos", Orders.sendPhotos);
@@ -936,14 +1323,30 @@ var CampusRunnersDemo = (function () {
       } else if (status === "receipt") {
         addButton("Runner heads to drop-off", Orders.advance);
       } else if (status === "on_the_way") {
-        addButton("Runner: I'm here", Orders.advance);
+        addButton(
+          Orders.isGazebo(order)
+            ? "Runner: I'm here + delivery photo"
+            : "Runner: I'm here",
+          Orders.advance,
+        );
       } else if (status === "arrived") {
-        addButton("Runner: cash received", function () {
-          Orders.confirm("runner");
-        });
-        addButton("Customer: I received it", function () {
-          Orders.confirm("customer");
-        });
+        var gazebo = Orders.isGazebo(order);
+        var online = gazebo && order.paymentMethod === "online";
+        addButton(
+          online ? "Runner: payment received" : "Runner: cash received",
+          function () {
+            Orders.confirm("runner");
+          },
+        );
+        if (Orders.isFrontDesk(order)) {
+          addNote(
+            "Front desk: the order closes when the runner confirms payment.",
+          );
+        } else {
+          addButton("Customer: I received it", function () {
+            Orders.confirm("customer");
+          });
+        }
       }
 
       if ((status === "choosing" || status === "buying") && !order.inQueue) {

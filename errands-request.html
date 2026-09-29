@@ -282,7 +282,7 @@
       var EXAMPLES = {
         cafeteria: "e.g. 2 viands and 1 rice, plus a brownie",
         kubo: "e.g. 1 pancit canton and a bottled water",
-        store: "e.g. 2 packs of noodles, 1/4 kilo of tomatoes and a detergent",
+        store: "e.g. 1 notebook and 2 black pens",
       };
 
       // ------------------------------------------------------------------
@@ -290,7 +290,10 @@
       // ------------------------------------------------------------------
 
       var TYPE = new URLSearchParams(window.location.search).get("type");
-      if (!CampusRunnersOrder.PLACES[TYPE]) TYPE = "cafeteria";
+      // Gazebo Parcel Pick Up is not a budget errand: it has its own form.
+      if (TYPE === "gazebo") window.location.replace("gazebo-request.html");
+      if (!CampusRunnersOrder.PLACES[TYPE] || TYPE === "gazebo")
+        TYPE = "cafeteria";
       var PLACE = CampusRunnersOrder.PLACES[TYPE];
 
       document.getElementById("pickup-value").textContent =

@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusRunners - Parcel Pick Up Summary</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-frame">
+      <!-- Gazebo Parcel Pick Up summary screen -->
+      <div
+        class="screen active signup-screen has-bottom-nav"
+        id="screen-gazebo-summary"
+      >
+        <div class="screen-scroll">
+          <button class="back-btn" aria-label="Back to edit request" onclick="editOrder()">
+            &#8592;
+          </button>
+
+          <div class="request-heading">Order Summary</div>
+
+          <!-- Pickup / drop-off recap -->
+          <div class="location-card">
+            <div class="location-row">
+              <div class="location-timeline">
+                <div class="location-dot filled"></div>
+                <div class="location-line"></div>
+                <div class="location-dot filled"></div>
+              </div>
+              <div class="location-fields">
+                <div class="location-field">
+                  <div class="location-field-label">Pickup point</div>
+                  <div class="location-value-fixed">📦 Gazebo</div>
+                  <div class="field-hint" id="summary-rider"></div>
+                </div>
+                <div class="location-field">
+                  <div class="location-field-label">Drop-off point</div>
+                  <div class="location-value-fixed" id="summary-dropoff">
+                    &mdash;
+                  </div>
+                  <div class="field-hint" id="summary-dropoff-hint"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Parcels -->
+          <div class="request-section-label">Your parcels</div>
+          <div class="info-card" id="summary-parcels"></div>
+
+          <!-- Delivery details -->
+          <div class="request-section-label">Delivery details</div>
+          <div class="info-card">
+            <div class="recap-line">
+              <span>Parcel size</span><strong id="summary-size"></strong>
+            </div>
+            <div class="recap-line">
+              <span>Handover</span><strong id="summary-handover"></strong>
+            </div>
+            <div class="recap-line">
+              <span>Payment</span><strong id="summary-payment"></strong>
+            </div>
+          </div>
+
+          <!-- Message, shown exactly as typed (only if there is one) -->
+          <div id="summary-message-wrap" hidden>
+            <div class="request-section-label">Your message</div>
+            <div class="info-card">
+              <div class="note-text" id="summary-message"></div>
+            </div>
+          </div>
+
+          <!-- Total (exact, not "up to") -->
+          <div class="total-card">
+            <div class="total-row">
+              <div class="total-label">You'll pay</div>
+              <div class="total-value" id="summary-total-value">₱0</div>
+            </div>
+
+            <div class="total-lines">
+              <div class="total-line">
+                <span>COD amount</span><span id="sum-line-cod">₱0</span>
+              </div>
+              <div class="total-line">
+                <span>Delivery fee</span><span id="sum-line-fee">₱0</span>
+              </div>
+            </div>
+
+            <div class="total-note">
+              This is the exact amount: what your runner pays the courier for
+              your COD parcels, plus one delivery fee for the whole request.
+            </div>
+          </div>
+
+          <!-- Payment explanation -->
+          <div class="info-card">
+            <div class="info-card-header">How payment works</div>
+            <div class="info-card-text" id="pay-cod-text"></div>
+            <div class="info-card-text" id="pay-method-text"></div>
+            <div class="info-card-text" id="pay-proof-text"></div>
+          </div>
+
+          <!-- What happens next -->
+          <div class="info-card">
+            <div class="info-card-header">What happens next</div>
+            <ol class="next-steps">
+              <li class="next-step">
+                <span class="next-step-num">1</span>
+                <span>A runner accepts your request.</span>
+              </li>
+              <li class="next-step">
+                <span class="next-step-num">2</span>
+                <span
+                  >They go to the Gazebo, find your parcels, and pay the
+                  courier for any COD parcels.</span
+                >
+              </li>
+              <li class="next-step">
+                <span class="next-step-num">3</span>
+                <span
+                  >They send photos of your parcels as proof, then bring them
+                  to your drop-off point.</span
+                >
+              </li>
+              <li class="next-step">
+                <span class="next-step-num">4</span>
+                <span id="next-step-4"></span>
+              </li>
+            </ol>
+          </div>
+
+          <button
+            class="checkout-btn"
+            id="place-order-btn"
+            onclick="handleCheckout()"
+          >
+            Place order
+          </button>
+        </div>
+
+        <div class="bottom-nav">
+          <a class="nav-item" href="home.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 11.5L12 4l9 7.5" />
+                <path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" />
+              </svg>
+            </div>
+            <div class="nav-label">Home</div>
+          </a>
+
+          <a class="nav-item" href="activity.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M12 3a6 6 0 0 0-6 6c0 4-2 5-2 6h16c0-1-2-2-2-6a6 6 0 0 0-6-6z"
+                />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+              </svg>
+            </div>
+            <div class="nav-label">Activity</div>
+          </a>
+
+          <a class="nav-item nav-item-track" href="track.html">
+            <div class="nav-icon">🏃</div>
+            <div class="nav-label">Track</div>
+          </a>
+
+          <a class="nav-item" href="messages.html">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                />
+              </svg>
+            </div>
+            <div class="nav-label">Messages</div>
+          </a>
+
+          <div class="nav-item">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
+            <div class="nav-label">Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script>
+      var Orders = CampusRunnersOrder;
+      var G = Orders.GAZEBO;
+      var DRAFT_KEY = "cr_errand_order";
+
+      function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function peso(n) {
+        return "₱" + n;
+      }
+
+      function loadDraft() {
+        var raw = null;
+        try {
+          raw = localStorage.getItem(DRAFT_KEY);
+        } catch (e) {
+          return null;
+        }
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // A Gazebo draft must have these before we can show or place it.
+      function isGazeboDraft(d) {
+        return !!(
+          d &&
+          d.type === "gazebo" &&
+          d.dropoff &&
+          d.riderUntil &&
+          G.sizes[d.parcelSize] &&
+          d.parcels &&
+          d.parcels.length
+        );
+      }
+
+      // Back arrow: the request page refills itself so nothing is retyped.
+      function editOrder() {
+        try {
+          sessionStorage.setItem("cr_restore_errand", "1");
+        } catch (e) {}
+        window.location.href = "gazebo-request.html";
+      }
+
+      function renderDraft(d) {
+        var frontDesk = d.handover === "front_desk";
+        var online = d.paymentMethod === "online";
+        var fee = G.sizes[d.parcelSize].fee;
+        var cod = 0;
+
+        document.getElementById("summary-dropoff").textContent = d.dropoff;
+        document.getElementById("summary-dropoff-hint").textContent = frontDesk
+          ? "Your runner leaves your parcels at the front desk."
+          : "Meet your runner outside. Classrooms aren't allowed.";
+        document.getElementById("summary-rider").textContent =
+          "Rider is at the Gazebo until " + Orders.formatClock(d.riderUntil);
+
+        // Parcels (textContent only, so typed names can't be read as HTML)
+        var box = document.getElementById("summary-parcels");
+        box.innerHTML = "";
+        d.parcels.forEach(function (p, i) {
+          var isCod = !!p.isCod;
+          var amount = isCod ? Math.floor(Number(p.codAmount)) || 0 : 0;
+          cod += amount;
+          var row = el("div", "parcel-row");
+          row.appendChild(el("div", "parcel-row-title", "Parcel " + (i + 1) + " · " + p.courier));
+          row.appendChild(
+            el(
+              "div",
+              "parcel-row-sub",
+              p.name + " · " + (isCod ? "COD " + peso(amount) : "Already paid"),
+            ),
+          );
+          box.appendChild(row);
+        });
+
+        document.getElementById("summary-size").textContent =
+          G.sizes[d.parcelSize].label + " (" + peso(fee) + ")";
+        document.getElementById("summary-handover").textContent =
+          G.handovers[d.handover] || G.handovers.meet;
+        document.getElementById("summary-payment").textContent =
+          G.payments[d.paymentMethod] || G.payments.cash;
+
+        var msg = (d.message || "").trim();
+        document.getElementById("summary-message-wrap").hidden = !msg;
+        document.getElementById("summary-message").textContent = msg;
+
+        document.getElementById("sum-line-cod").textContent = peso(cod);
+        document.getElementById("sum-line-fee").textContent = peso(fee);
+        document.getElementById("summary-total-value").textContent = peso(cod + fee);
+
+        document.getElementById("pay-cod-text").textContent = cod
+          ? "Your runner pays first, using their own money. For your COD parcels, they pay the courier " +
+            peso(cod) + " and you pay them back, plus one delivery fee of " + peso(fee) + "."
+          : "None of your parcels are COD, so you only pay the delivery fee of " + peso(fee) + ".";
+
+        var methodText;
+        if (online) {
+          methodText =
+            "📱 Pay through GCash / Online after delivery. Your runner sends their GCash details in Messages. Payments are not made inside the app.";
+        } else {
+          methodText =
+            "💵 Pay in cash after your runner hands over your parcels. Prepare exact cash if you can.";
+        }
+        document.getElementById("pay-method-text").textContent = methodText;
+
+        document.getElementById("pay-proof-text").textContent = frontDesk
+          ? "Your runner takes a photo at the Gazebo when they collect your parcels, and another at the front desk when they leave them there. You don't need to come downstairs."
+          : "Your runner takes a photo at the Gazebo when they collect your parcels, and another when they deliver them.";
+
+        document.getElementById("next-step-4").textContent = frontDesk
+          ? "They leave your parcels at the front desk, and you pay online. The order closes when they confirm your payment."
+          : "They hand your parcels to you outside, and you pay them. The order closes when you both confirm.";
+      }
+
+      function handleCheckout() {
+        var draft = loadDraft();
+        if (!isGazeboDraft(draft)) {
+          showToast("Your order details are missing. Please start again.", {
+            type: "error",
+          });
+          return;
+        }
+
+        // One order at a time.
+        if (Orders.get()) {
+          showToast("You already have an order in progress.", { type: "error" });
+          return;
+        }
+
+        // Stop double-taps from placing the order twice.
+        var btn = document.getElementById("place-order-btn");
+        btn.disabled = true;
+
+        var order = Orders.create(draft);
+        if (!order) {
+          btn.disabled = false;
+          showToast(
+            "Something in your request isn't valid. Please go back and check it.",
+            { type: "error" },
+          );
+          return;
+        }
+
+        showToast("Order placed! We're finding you a Runner.");
+        try {
+          localStorage.removeItem(DRAFT_KEY);
+          sessionStorage.removeItem("cr_restore_errand");
+        } catch (e) {}
+
+        setTimeout(function () {
+          window.location.href = "home.html";
+        }, 1600);
+      }
+
+      (function init() {
+        var draft = loadDraft();
+        if (!isGazeboDraft(draft)) {
+          showToast("No request found. Please fill in your request again.", {
+            type: "error",
+          });
+          document.getElementById("summary-parcels").appendChild(
+            el("div", "note-text", "No request details found."),
+          );
+          document.getElementById("place-order-btn").disabled = true;
+          return;
+        }
+        renderDraft(draft);
+      })();
+    </script>
+  </body>
+</html>

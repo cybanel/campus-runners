@@ -1665,6 +1665,10 @@ body {
   margin-bottom: 0;
 }
 
+.checkout-btn.as-link[hidden] {
+  display: none;
+}
+
 .checkout-btn.as-link {
   display: block;
   text-align: center;
@@ -2013,107 +2017,363 @@ div.photo-tile {
   word-break: break-word;
 }
 
-/* ==== Rating (rate.html + Activity rating line) ==== */
-.rate-runner {
+/* ==================================================================
+   Gazebo Parcel Pick Up additions
+   (gazebo-request.html, gazebo-summary.html, proof cards in chat)
+   ================================================================== */
+
+/* Radio-style choices (payment status, size, handover, payment method).
+   The real <input type="radio"> stays in the page for keyboards and
+   screen readers; the label span is what people see. */
+.choice-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 14px 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.choice-row.stack {
+  flex-direction: column;
+}
+
+.choice {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.choice-row.stack .choice {
+  flex: none;
+}
+
+.choice input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.choice-body {
+  display: block;
+  padding: 11px 10px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(41, 48, 141, 0.25);
+  background: transparent;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.choice-row.stack .choice-body {
+  text-align: left;
+  padding: 12px 14px;
+}
+
+.choice-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7b7f9e;
+}
+
+.choice input:checked + .choice-body {
+  border-color: var(--blue);
+  background: rgba(255, 217, 0, 0.35);
+}
+
+.choice input:focus-visible + .choice-body {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.choice input:disabled {
+  cursor: not-allowed;
+}
+
+.choice input:disabled + .choice-body {
+  opacity: 0.4;
+}
+
+/* One card per parcel */
+.parcel-card {
+  margin-top: 14px;
   background: var(--white);
   border: 1px solid rgba(41, 48, 141, 0.08);
   border-radius: 18px;
   box-shadow: 0 2px 10px rgba(41, 48, 141, 0.08);
+  padding: 14px 16px 16px;
+}
+
+.parcel-card-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--blue);
+}
+
+.parcel-card .location-field {
+  margin-top: 12px;
+}
+
+.parcel-card .location-field + .location-field {
+  margin-top: 12px;
+}
+
+.parcel-card .location-field[hidden] {
+  display: none;
+}
+
+.parcel-card select.location-input {
+  appearance: auto;
+}
+
+/* Soft warning: never blocks anything */
+.soft-warning {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border-left: 3px solid var(--yellow);
+  background: rgba(255, 217, 0, 0.22);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--blue);
+}
+
+.soft-warning[hidden] {
+  display: none;
+}
+
+.stepper-input[readonly] {
+  cursor: default;
+}
+
+/* Parcel rows on the summary */
+.parcel-row {
+  padding: 8px 0;
+}
+
+.parcel-row + .parcel-row {
+  border-top: 1px solid rgba(41, 48, 141, 0.08);
+}
+
+.parcel-row-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--blue);
+}
+
+.parcel-row-sub {
+  margin-top: 1px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #565b82;
+  word-break: break-word;
+}
+
+.recap-line strong {
+  word-break: break-word;
+}
+
+/* Proof photos in chat (pickup and delivery) reuse .photo-grid/.photo-tile */
+.photo-grid.single {
+  grid-template-columns: 1fr;
+}
+
+.proof-label {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--blue);
+}
+
+.add-parcel-card-btn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1.5px dashed rgba(41, 48, 141, 0.35);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.add-parcel-card-btn:hover:not(:disabled) {
+  background: rgba(41, 48, 141, 0.06);
+}
+
+.add-parcel-card-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* ---- Runner rating page ---- */
+#screen-rate .screen-scroll {
+  box-sizing: border-box;
+  padding: 28px 22px 32px;
+}
+
+#screen-rate .request-heading {
+  width: 100%;
+  margin: 12px 0 24px;
+  text-align: center;
+  font-size: 24px;
+}
+
+#rate-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 18px 16px;
+  background: var(--white);
+  border: 1px solid rgba(41, 48, 141, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 6px 22px rgba(41, 48, 141, 0.1);
+}
+
+#rate-form[hidden] {
+  display: none;
+}
+
+.rate-runner {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px;
+  background: rgba(41, 48, 141, 0.045);
+  border-radius: 16px;
+}
+
+#rate-avatar {
+  width: 52px;
+  height: 52px;
+  font-size: 17px;
+}
+
+#rate-name {
+  font-size: 15px;
+}
+
+#rate-sub {
+  line-height: 1.4;
 }
 
 .rate-question {
-  margin-top: 22px;
-  text-align: center;
-  font-size: 15px;
-  font-weight: 800;
+  margin: 24px 0 4px;
   color: var(--blue);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .rate-stars {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 14px 0 20px;
+  padding: 13px 8px;
+  background: #f5f6fb;
+  border-radius: 16px;
 }
 
 .star-btn {
-  width: 50px;
-  height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 1 48px;
+  width: 48px;
+  height: 48px;
   padding: 0;
-  border: none;
-  background: transparent;
-  font-size: 42px;
+  border: 1px solid rgba(41, 48, 141, 0.12);
+  border-radius: 14px;
+  background: var(--white);
+  color: #c2c5d5;
+  font-size: 29px;
   line-height: 1;
-  color: #d5d7e6;
   cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.star-btn:hover {
+  transform: translateY(-1px);
+  color: #e3a900;
 }
 
 .star-btn.on {
-  color: var(--yellow);
-  -webkit-text-stroke: 1.5px var(--blue);
-  animation: star-pop 0.18s ease-out;
+  border-color: rgba(255, 190, 0, 0.4);
+  background: rgba(255, 217, 0, 0.24);
+  color: #e3a900;
 }
 
 .star-btn:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
-  border-radius: 10px;
 }
 
-.rate-skip {
-  display: block;
-  width: 100%;
-  margin-bottom: 20px;
-  padding: 10px 0;
-  border: none;
+#rate-submit {
+  margin: 0;
+  padding: 15px 16px;
+}
+
+#rate-skip {
+  align-self: center;
+  margin-top: 10px;
+  padding: 11px 16px;
+  border: 0;
   background: transparent;
+  color: #626987;
+  font: inherit;
   font-size: 14px;
-  font-weight: 700;
-  color: #7b7f9e;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.activity-rating {
-  margin-top: 10px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #7b7f9e;
-}
-
-.rating-stars-static {
-  margin-left: 4px;
-  letter-spacing: 1px;
+#rate-skip:hover {
   color: var(--blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.activity-rate-link {
-  display: inline-block;
-  margin-top: 10px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--yellow);
-  color: var(--blue);
-  font-size: 12.5px;
-  font-weight: 800;
-  text-decoration: none;
+#rate-empty,
+#rate-done {
+  width: 100%;
 }
 
-@keyframes star-pop {
-  0% {
-    transform: scale(0.8);
+#rate-empty[hidden],
+#rate-done[hidden] {
+  display: none;
+}
+
+@media (max-width: 360px) {
+  #screen-rate .screen-scroll {
+    padding-right: 16px;
+    padding-left: 16px;
   }
-  100% {
-    transform: scale(1);
-  }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .star-btn.on {
-    animation: none;
+  #rate-form {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .rate-stars {
+    gap: 6px;
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .star-btn {
+    height: 44px;
+    font-size: 26px;
   }
 }
