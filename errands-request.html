@@ -8,7 +8,7 @@
   </head>
   <body>
     <div class="phone-frame">
-      <!-- One request form for every errand: cafeteria, Kubo and store -->
+      <!-- One consistent customer request form for every errand category. -->
       <div
         class="screen active signup-screen has-bottom-nav"
         id="screen-request"
@@ -21,7 +21,7 @@
             &#8592;
           </button>
 
-          <div class="request-heading">New Errand Request</div>
+          <div class="request-heading" id="request-heading">New Errand Request</div>
 
           <!-- Pickup / drop-off -->
           <div class="location-card">
@@ -78,7 +78,7 @@
           </div>
 
           <!-- Budget -->
-          <div class="request-section-label">Your budget</div>
+          <div class="request-section-label">Budget</div>
           <p class="section-help">
             The most your runner can spend on your items. If something costs
             more, they'll ask you first.
@@ -100,38 +100,23 @@
           </div>
 
           <!-- Message -->
-          <div class="request-section-label">What should your runner buy?</div>
+          <div class="request-section-label instructions-label">Detailed Instructions</div>
           <p class="section-help">
-            Tell us what and how many. Your runner will send photos and confirm
-            with you in Messages before buying.
+            Please provide clear and detailed instructions for the Runner. Include what to buy or pick up, quantity, names, delivery details, payment details, preferences, or anything else they need to complete your request.
           </p>
           <div class="location-field">
             <textarea
               class="message-textarea"
               id="request-message"
-              maxlength="300"
+              maxlength="1000"
               placeholder=""
             ></textarea>
-            <div class="field-hint char-count" id="char-count">0 / 300</div>
+            <div class="field-hint char-count" id="char-count">0 / 1000</div>
           </div>
 
-          <!-- Cafeteria-only notices -->
-          <div id="cafeteria-notices" hidden>
-            <div class="info-card">
-              <div class="info-card-header">Sealed drinks only</div>
-              <div class="info-card-text">
-                Cup and dispenser drinks can't be delivered because they aren't
-                sealed and can spill.
-              </div>
-            </div>
-            <div class="info-card">
-              <div class="info-card-header">🔒 Keep your ID private</div>
-              <div class="info-card-text">
-                Never share your ID number or cafeteria load with your runner.
-                Your runner pays first, and you pay them back in cash.
-              </div>
-            </div>
-          </div>
+          <div class="request-section-label">How will you pay the Runner?</div>
+          <div class="choice-row" id="payment-choices" role="radiogroup" aria-label="Payment method for the Runner"></div>
+          <div class="field-hint" id="payment-hint">Pay the Runner after delivery. Coordinate payment details in Messages.</div>
 
           <!-- Total -->
           <div class="total-card">
@@ -214,7 +199,7 @@
             <div class="nav-label">Messages</div>
           </a>
 
-          <div class="nav-item">
+          <a class="nav-item" href="profile.html">
             <div class="nav-icon">
               <svg
                 viewBox="0 0 24 24"
@@ -227,7 +212,7 @@
               </svg>
             </div>
             <div class="nav-label">Profile</div>
-          </div>
+          </a>
         </div>
       </div>
     </div>
@@ -283,6 +268,8 @@
         cafeteria: "e.g. 2 viands and 1 rice, plus a brownie",
         kubo: "e.g. 1 pancit canton and a bottled water",
         store: "e.g. 1 notebook and 2 black pens",
+        gazebo: "e.g. Pick up my two parcels at the Gazebo. They are under Juan Dela Cruz; one is COD for ₱350. Please bring both to Dorm 3.",
+        gate: "e.g. Pick up my Foodpanda order under Juan Dela Cruz at the AUP Main Gate. It is already paid; please bring it to Dorm 3.",
       };
 
       // ------------------------------------------------------------------
@@ -290,17 +277,36 @@
       // ------------------------------------------------------------------
 
       var TYPE = new URLSearchParams(window.location.search).get("type");
-      // Gazebo Parcel Pick Up is not a budget errand: it has its own form.
-      if (TYPE === "gazebo") window.location.replace("gazebo-request.html");
-      if (!CampusRunnersOrder.PLACES[TYPE] || TYPE === "gazebo")
+      if (!CampusRunnersOrder.PLACES[TYPE])
         TYPE = "cafeteria";
       var PLACE = CampusRunnersOrder.PLACES[TYPE];
+      var PAYMENT = "cash";
 
-      document.getElementById("pickup-value").textContent =
-        PLACE.emoji + " " + PLACE.label;
+      var PICKUPS = {
+        cafeteria: PLACE.emoji + " " + PLACE.label,
+        kubo: PLACE.emoji + " " + PLACE.label,
+        store: PLACE.emoji + " " + PLACE.label,
+        gazebo: "📦 Gazebo",
+        gate: "🚪 AUP Main Gate",
+      };
+
+      document.getElementById("request-heading").textContent = PLACE.label + " Request";
+      document.getElementById("pickup-value").textContent = PICKUPS[TYPE];
       document.getElementById("request-message").placeholder = EXAMPLES[TYPE];
-      document.getElementById("cafeteria-notices").hidden =
-        TYPE !== "cafeteria";
+      document.getElementById("request-message").setAttribute("aria-label", "Detailed instructions");
+      document.getElementById("budget").max = MAX_BUDGET;
+      if (TYPE === "gate" || TYPE === "gazebo") {
+        var gateDropoffList = document.getElementById("dropoff-options");
+        gateDropoffList.innerHTML = "";
+        var categoryDropoffs = TYPE === "gate"
+          ? CampusRunnersOrder.GATE.dropoffs
+          : CampusRunnersOrder.GAZEBO.dropoffs;
+        categoryDropoffs.forEach(function (name) {
+          var option = document.createElement("option");
+          option.value = name;
+          gateDropoffList.appendChild(option);
+        });
+      }
       document.title = "CampusRunners - " + PLACE.label + " Errand";
 
       // ------------------------------------------------------------------
@@ -328,6 +334,8 @@
       function matchDropoff(text) {
         var wanted = text.trim().toLowerCase();
         if (!wanted) return "";
+        if (TYPE === "gazebo") return CampusRunnersOrder.matchGazeboDropoff(text);
+        if (TYPE === "gate") return CampusRunnersOrder.matchGateDropoff(text);
         var names = Object.keys(DROPOFF_ZONES);
         for (var i = 0; i < names.length; i++) {
           if (names[i].toLowerCase() === wanted) return names[i];
@@ -348,7 +356,10 @@
         var place = matchDropoff(
           document.getElementById("dropoff-point").value,
         );
-        if (!place) return { amount: FEES.base, known: false, peak: false };
+        if (!place) return { amount: TYPE === "gazebo" ? 35 : FEES.base, known: false, peak: false };
+
+        if (TYPE === "gazebo") return { amount: 35, known: true, peak: false };
+        if (TYPE === "gate") return { amount: CampusRunnersOrder.gateDeliveryFee(place), known: true, peak: false };
 
         var amount = FEES.base + FEES.zoneExtra[DROPOFF_ZONES[place]];
         var peak = isPeakNow();
@@ -375,15 +386,35 @@
           ? peso(budget + fee.amount)
           : "—";
 
-        var note =
-          "You only pay what's on the receipt (up to your budget) plus the " +
-          "delivery fee, in cash after delivery.";
+        var note = "Your budget is the most the Runner can spend. Coordinate payment and any COD details in Messages.";
+        if (PAYMENT === "online") note += " Pay by GCash / Online after delivery; the Runner will share payment details in Messages.";
+        else note += " Pay the Runner in cash after delivery.";
         if (fee.peak) note = "Peak-hour fee included. " + note;
         document.getElementById("total-note").textContent = note;
 
         document.getElementById("char-count").textContent =
-          document.getElementById("request-message").value.length + " / 300";
+          document.getElementById("request-message").value.length + " / 1000";
       }
+
+      Object.keys(CampusRunnersOrder.GAZEBO.payments).forEach(function (key) {
+        var label = document.createElement("label");
+        label.className = "choice";
+        var input = document.createElement("input");
+        input.type = "radio";
+        input.name = "customer-payment";
+        input.value = key;
+        input.checked = key === PAYMENT;
+        input.addEventListener("change", function () {
+          PAYMENT = key;
+          updateTotal();
+        });
+        var body = document.createElement("span");
+        body.className = "choice-body";
+        body.textContent = CampusRunnersOrder.GAZEBO.payments[key];
+        label.appendChild(input);
+        label.appendChild(body);
+        document.getElementById("payment-choices").appendChild(label);
+      });
 
       // Quick-pick budget buttons
       var chipRow = document.getElementById("budget-chips");
@@ -430,6 +461,12 @@
           });
           return;
         }
+        if ((TYPE === "gate" && dropoff === CampusRunnersOrder.GATE.pickup) ||
+            (TYPE === "gazebo" && dropoff === "Gazebo")) {
+          dropoffInput.focus();
+          showToast("Choose a drop-off point different from the pick-up point.", { type: "error" });
+          return;
+        }
         if (!budgetIsValid()) {
           budgetInput.focus();
           showToast(
@@ -444,7 +481,7 @@
         }
         if (!message) {
           messageInput.focus();
-          showToast("Tell your runner what to buy.", { type: "error" });
+          showToast("Add detailed instructions for your Runner.", { type: "error" });
           return;
         }
 
@@ -453,9 +490,11 @@
 
         var draft = {
           type: TYPE,
+          pickup: PICKUPS[TYPE],
           dropoff: dropoff,
           budget: budget,
           message: message,
+          paymentMethod: PAYMENT,
           deliveryFee: fee.amount,
           maxTotal: budget + fee.amount,
         };
@@ -489,6 +528,8 @@
         document.getElementById("dropoff-point").value = d.dropoff || "";
         document.getElementById("budget").value = d.budget || "";
         document.getElementById("request-message").value = d.message || "";
+        PAYMENT = d.paymentMethod === "online" ? "online" : "cash";
+        document.querySelectorAll('input[name="customer-payment"]').forEach(function (input) { input.checked = input.value === PAYMENT; });
       }
 
       restoreDraft();

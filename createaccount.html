@@ -74,6 +74,7 @@
 
       if (firstNameValid && lastNameValid && emailValid && passwordValid) {
         CampusRunnersSession.setFirstName(firstName);
+        CampusRunnersSession.setProfile(firstName + ' ' + lastName, email);
         window.location.href = 'home.html';
       }
     }

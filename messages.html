@@ -101,7 +101,7 @@
             <div class="nav-label">Messages</div>
           </a>
 
-          <div class="nav-item">
+          <a class="nav-item" href="profile.html">
             <div class="nav-icon">
               <svg
                 viewBox="0 0 24 24"
@@ -114,7 +114,7 @@
               </svg>
             </div>
             <div class="nav-label">Profile</div>
-          </div>
+          </a>
         </div>
       </div>
     </div>
@@ -124,6 +124,10 @@
       var Orders = CampusRunnersOrder;
 
       var lastMessageCount = -1;
+      function runnerSide() {
+        try { return localStorage.getItem("cr_home_mode") === "runner"; }
+        catch (e) { return false; }
+      }
 
       function el(tag, className, text) {
         var node = document.createElement(tag);
@@ -233,6 +237,8 @@
               "\u2713 You confirmed this at " + timeLabel(msg.confirmedAt),
             ),
           );
+        } else if (runnerSide()) {
+          wrap.appendChild(el("div", "photo-hint", "Waiting for the customer to confirm or message you."));
         } else {
           var ok = el("button", "chat-action-btn", "Looks good");
           ok.type = "button";
@@ -268,6 +274,8 @@
           );
         } else if (msg.result === "declined") {
           wrap.appendChild(el("div", "amount-declined", "You declined this"));
+        } else if (runnerSide()) {
+          wrap.appendChild(el("div", "amount-note", "Waiting for the customer to respond."));
         } else {
           var row = el("div", "chat-action-row");
 
@@ -326,7 +334,9 @@
           el(
             "div",
             "amount-note",
-            "Amount to pay in cash after delivery. Prepare exact cash if you can.",
+            msg.paymentMethod === "online"
+              ? "Pay by GCash / Online after delivery. Your Runner will share payment details in Messages."
+              : "Amount to pay in cash after delivery. Prepare exact cash if you can.",
           ),
         );
 
@@ -355,17 +365,17 @@
 
           var empty = el("div", "chat-empty");
           if (order) {
-            empty.appendChild(el("strong", "", "Waiting for a runner"));
+            empty.appendChild(el("strong", "", runnerSide() ? "Waiting for a customer" : "Waiting for a runner"));
             empty.appendChild(
               document.createTextNode(
-                "Chat opens as soon as a runner accepts your order.",
+                runnerSide() ? "Chat opens when you accept the customer's request." : "Chat opens as soon as a runner accepts your order.",
               ),
             );
           } else {
             empty.appendChild(el("strong", "", "No messages yet"));
             empty.appendChild(
               document.createTextNode(
-                "When a runner accepts your order, you can chat with them here.",
+                runnerSide() ? "Accept a request to chat with its customer here." : "When a runner accepts your order, you can chat with them here.",
               ),
             );
           }
@@ -374,18 +384,21 @@
         }
 
         header.hidden = false;
+        thread.classList.toggle("runner-chat-mode", runnerSide());
         // The ID reminder only applies to cafeteria orders (Kubo and the store are cash only).
         safety.hidden = order.type && order.type !== "cafeteria";
         setComposer(true);
-        document.getElementById("chat-avatar").textContent = initials(
-          order.runner.name,
-        );
-        document.getElementById("chat-name").textContent = order.runner.name;
+        var chatName = runnerSide() ? (order.customerName || "Campus Customer") : order.runner.name;
+        document.getElementById("chat-avatar").textContent = initials(chatName);
+        document.getElementById("chat-name").textContent = chatName;
         document.getElementById("chat-sub").textContent =
-          Orders.place(order).label + " order \u00B7 " + (order.dropoff || "");
+          Orders.place(order).label + (runnerSide() ? " customer · " : " order · ") + (order.dropoff || "");
 
         var chat = order.chat || [];
         chat.forEach(function (msg) {
+          if (runnerSide() && (msg.from === "you" || msg.from === "runner")) {
+            msg = Object.assign({}, msg, { from: msg.from === "runner" ? "you" : "runner" });
+          }
           if (msg.from === "system") {
             thread.appendChild(el("div", "chat-system", msg.text));
           } else if (msg.type === "photos") {
@@ -412,8 +425,11 @@
 
       function sendTyped() {
         var input = document.getElementById("chat-input");
-        if (Orders.sendCustomerMessage(input.value)) input.value = "";
+        var sent = runnerSide() ? Orders.sendRunnerMessage(input.value) : Orders.sendCustomerMessage(input.value);
+        if (sent) input.value = "";
       }
+
+      document.getElementById("chat-input").placeholder = runnerSide() ? "Message the customer…" : "Message your runner…";
 
       document.getElementById("chat-send").addEventListener("click", sendTyped);
       document

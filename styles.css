@@ -811,7 +811,7 @@ body {
 .message-textarea {
   margin-top: 8px;
   width: 100%;
-  min-height: 78px;
+  min-height: 150px;
   padding: 13px 14px;
   border-radius: 12px;
   border: 1px solid rgba(41, 48, 141, 0.2);
@@ -1365,6 +1365,321 @@ body {
 
 .demo-panel[hidden] {
   display: none;
+}
+
+/* ---- Simple customer profile ---- */
+#customer-home-view[hidden],
+#runner-home-view[hidden],
+.bottom-nav[hidden] {
+  display: none !important;
+}
+
+.phone-frame.runner-mode .order-float {
+  display: none !important;
+}
+
+.runner-home-view {
+  padding-top: 24px;
+}
+
+.home-mode-switch {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 0 14px;
+  border: 1px solid rgba(41, 48, 141, 0.12);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--blue);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mode-switch-icon {
+  font-size: 18px;
+}
+
+.mode-switch-chevron {
+  margin-left: auto;
+  color: #8a90ae;
+  font-size: 22px;
+}
+
+.runner-home-intro {
+  margin: -12px 0 18px;
+  color: #777d9c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.runner-online-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid rgba(41, 48, 141, 0.12);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.runner-online-title {
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.runner-online-hint {
+  margin-top: 4px;
+  color: #777d9c;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.runner-online-toggle {
+  flex-shrink: 0;
+  min-width: 90px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--blue);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.runner-online-toggle.online {
+  background: #e8f5ed;
+  color: #217546;
+}
+
+.runner-empty-card,
+.runner-post-card {
+  margin-bottom: 18px;
+  padding: 17px;
+  border: 1px solid rgba(41, 48, 141, 0.12);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(31, 41, 110, 0.05);
+}
+
+.runner-empty-card {
+  color: #777d9c;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.runner-post-eyebrow {
+  margin-bottom: 5px;
+  color: #777d9c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+}
+
+.runner-post-title {
+  margin-bottom: 13px;
+  color: var(--blue);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.runner-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(41, 48, 141, 0.08);
+  font-size: 12px;
+}
+
+.runner-detail-label {
+  color: #777d9c;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.runner-detail-value {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.runner-instructions {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 11px;
+  background: #f5f6fb;
+}
+
+.runner-instructions-text {
+  margin-top: 6px;
+  color: #41466f;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.runner-task-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.runner-action-button {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 13px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--yellow);
+  color: var(--blue);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.runner-action-button.secondary {
+  border: 1px solid rgba(41, 48, 141, 0.18);
+  background: #fff;
+}
+
+.runner-waiting-note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff8d9;
+  color: #615620;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.runner-message-link {
+  display: block;
+  padding: 11px;
+  border: 1px solid rgba(41, 48, 141, 0.15);
+  border-radius: 11px;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+}
+
+.profile-scroll {
+  padding-top: 22px;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 28px;
+  padding: 24px 18px;
+  border: 1px solid rgba(41, 48, 141, 0.1);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(31, 41, 110, 0.06);
+  text-align: center;
+}
+
+.profile-photo-placeholder {
+  display: grid;
+  width: 86px;
+  height: 86px;
+  margin-bottom: 5px;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #eef0fa;
+  box-shadow: 0 0 0 1px rgba(41, 48, 141, 0.15);
+  font-size: 38px;
+}
+
+.profile-full-name {
+  color: var(--blue);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.profile-email {
+  color: #777d9c;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.profile-settings-card {
+  margin-bottom: 24px;
+  padding: 0 16px;
+  border: 1px solid rgba(41, 48, 141, 0.1);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.profile-action {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-action span:last-child {
+  color: #8a90ae;
+  font-size: 24px;
+}
+
+.profile-danger-card {
+  padding: 16px;
+}
+
+.profile-danger-title {
+  color: #b42336;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.profile-danger-copy {
+  margin: 7px 0 14px;
+  color: #777d9c;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.profile-delete-button {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(180, 35, 54, 0.25);
+  border-radius: 10px;
+  background: #fff7f8;
+  color: #b42336;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .demo-panel.demo-panel-gate {
@@ -2131,6 +2446,24 @@ div.photo-tile {
 
 .parcel-card .location-field[hidden] {
   display: none;
+}
+
+.chat-thread.runner-chat-mode .chat-msg.runner {
+  align-self: flex-end;
+  background: var(--blue);
+  color: var(--white);
+  border: 0;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-thread.runner-chat-mode .chat-msg.you {
+  align-self: flex-start;
+  background: var(--white);
+  color: var(--blue);
+  border: 1px solid rgba(41, 48, 141, 0.1);
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 16px;
 }
 
 #screen-gate-request .gate-conditional[hidden] {

@@ -76,7 +76,7 @@
             <div class="nav-label">Messages</div>
           </a>
 
-          <div class="nav-item">
+          <a class="nav-item" href="profile.html">
             <div class="nav-icon">
               <svg
                 viewBox="0 0 24 24"
@@ -89,7 +89,7 @@
               </svg>
             </div>
             <div class="nav-label">Profile</div>
-          </div>
+          </a>
         </div>
       </div>
     </div>
@@ -115,6 +115,8 @@
       // Builds one order card. Uses textContent so nothing typed by a user
       // is ever treated as HTML.
       function buildCard(order, isActive) {
+        var runnerSide = false;
+        try { runnerSide = localStorage.getItem("cr_home_mode") === "runner"; } catch (e) {}
         var card = el(isActive ? "a" : "div", "activity-card");
         if (isActive) card.setAttribute("href", "track.html");
 
@@ -123,7 +125,7 @@
           el(
             "div",
             "activity-card-title",
-            CampusRunnersOrder.place(order).label + " order",
+            runnerSide ? (CampusRunnersOrder.place(order).label + " · " + (order.customerName || "Customer")) : (CampusRunnersOrder.place(order).label + " order"),
           ),
         );
 
@@ -151,6 +153,12 @@
         card.appendChild(
           el("div", "activity-card-summary", order.summary || "Custom order"),
         );
+        if (runnerSide && isActive) {
+          var customerMessage = (order.chat || []).filter(function (msg) { return msg.from === "you"; }).slice(-1)[0];
+          card.appendChild(el("div", "activity-card-summary runner-customer-notice", customerMessage
+            ? "Customer message: " + customerMessage.text
+            : (order.runner ? "Customer request accepted. Continue the updates in Track and Messages." : "New customer request. Open Track to review it.")));
+        }
 
         var foot = el("div", "activity-card-foot");
         // Delivered orders show what was actually paid. Budget orders show

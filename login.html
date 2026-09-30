@@ -50,6 +50,7 @@
       setFieldState('login-password', 'login-password-error', passwordValid);
 
       if (emailValid && passwordValid) {
+        localStorage.setItem('cr_email', email);
         window.location.href = 'home.html';
       }
     }

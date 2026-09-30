@@ -18,6 +18,11 @@
 
           <div class="request-heading">Order Summary</div>
 
+          <div class="info-card">
+            <div class="recap-line"><span>Category</span><strong id="summary-category">—</strong></div>
+            <div class="recap-line"><span>Payment method</span><strong id="summary-payment">Cash</strong></div>
+          </div>
+
           <!-- Pickup / drop-off recap -->
           <div class="location-card">
             <div class="location-row">
@@ -47,7 +52,7 @@
           </div>
 
           <!-- What the customer asked for, shown exactly as typed -->
-          <div class="request-section-label">Your request</div>
+          <div class="request-section-label">Detailed Instructions</div>
           <div class="info-card">
             <div class="note-text" id="summary-message"></div>
           </div>
@@ -69,62 +74,13 @@
             </div>
 
             <div class="total-note">
-              You pay the actual receipt total (never more than your budget
-              unless you approve it) plus the delivery fee.
+              Your budget is the most the Runner should spend. Coordinate the final item payment and any COD details in Messages; the delivery fee is added to the amount spent.
             </div>
           </div>
 
-          <!-- Payment explanation -->
-          <div class="info-card">
-            <div class="info-card-header">How payment works</div>
-            <div class="info-card-text">
-              Your runner pays first, using their own money. After delivery,
-              you pay them back in <strong>cash</strong>: the receipt total
-              plus the delivery fee.
-            </div>
-            <div class="info-card-text">
-              Your runner sends a photo of the receipt as proof. If something
-              costs more than your budget, they'll ask for your OK first.
-            </div>
-            <div class="info-card-text">
-              💵 Prepare exact cash if you can. Want to pay another way? Agree
-              on it with your runner in chat. Payments are not made inside the
-              app.
-            </div>
-            <div class="info-card-text" id="id-reminder" hidden>
-              🔒 <strong>Never share your ID number or cafeteria load</strong>
-              with your runner.
-            </div>
-          </div>
-
-          <!-- What happens next -->
           <div class="info-card">
             <div class="info-card-header">What happens next</div>
-            <ol class="next-steps">
-              <li class="next-step">
-                <span class="next-step-num">1</span>
-                <span>A runner accepts your request.</span>
-              </li>
-              <li class="next-step">
-                <span class="next-step-num">2</span>
-                <span
-                  >In Messages, they send photos of what they found and you
-                  confirm.</span
-                >
-              </li>
-              <li class="next-step">
-                <span class="next-step-num">3</span>
-                <span
-                  >They buy your order and send you the receipt.</span
-                >
-              </li>
-              <li class="next-step">
-                <span class="next-step-num">4</span>
-                <span
-                  >They deliver it, and you pay them in cash.</span
-                >
-              </li>
-            </ol>
+            <div class="info-card-text">A Runner can accept your request. You can coordinate details and clarifications in Messages, then follow the Runner's updates there.</div>
           </div>
 
           <button
@@ -190,7 +146,7 @@
             <div class="nav-label">Messages</div>
           </a>
 
-          <div class="nav-item">
+          <a class="nav-item" href="profile.html">
             <div class="nav-icon">
               <svg
                 viewBox="0 0 24 24"
@@ -203,7 +159,7 @@
               </svg>
             </div>
             <div class="nav-label">Profile</div>
-          </div>
+          </a>
         </div>
       </div>
     </div>
@@ -243,9 +199,12 @@
         var fee = draft.deliveryFee || 0;
 
         document.getElementById("summary-pickup").textContent =
-          place.emoji + " " + place.label;
+          draft.pickup || (draft.type === "gate" ? "🚪 AUP Main Gate" : draft.type === "gazebo" ? "📦 Gazebo" : place.emoji + " " + place.label);
         document.getElementById("summary-dropoff").textContent =
           draft.dropoff || "—";
+        document.getElementById("summary-category").textContent = place.label;
+        document.getElementById("summary-payment").textContent =
+          draft.paymentMethod === "online" ? "GCash / Online" : "Cash";
 
         // textContent keeps anything the customer typed from being read as HTML.
         document.getElementById("summary-message").textContent =
@@ -255,9 +214,6 @@
         document.getElementById("sum-line-fee").textContent = peso(fee);
         document.getElementById("summary-total-value").textContent = peso(budget + fee);
 
-        // The ID reminder only applies to the cafeteria (Kubo and the store
-        // are cash only).
-        document.getElementById("id-reminder").hidden = draft.type !== "cafeteria";
       }
 
       function handleCheckout() {
@@ -281,7 +237,12 @@
         var btn = document.getElementById("place-order-btn");
         btn.disabled = true;
 
-        CampusRunnersOrder.create(draft);
+        var order = CampusRunnersOrder.create(draft);
+        if (!order) {
+          btn.disabled = false;
+          showToast("We couldn't place this request. Please review your details.", { type: "error" });
+          return;
+        }
 
         showToast("Order placed! We're finding you a Runner.");
         localStorage.removeItem(DRAFT_KEY);

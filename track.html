@@ -282,7 +282,7 @@
             <div class="nav-label">Messages</div>
           </a>
 
-          <div class="nav-item">
+          <a class="nav-item" href="profile.html">
             <div class="nav-icon">
               <svg
                 viewBox="0 0 24 24"
@@ -295,7 +295,7 @@
               </svg>
             </div>
             <div class="nav-label">Profile</div>
-          </div>
+          </a>
         </div>
       </div>
     </div>
@@ -307,6 +307,51 @@
       var cancelArmed = false; // two-tap cancel while searching
       var cancelTimer = null;
       var cancelPanelOpen = false; // reason box after a runner accepted
+      function runnerSide() {
+        try { return localStorage.getItem("cr_home_mode") === "runner"; }
+        catch (e) { return false; }
+      }
+
+      function renderRunnerActions(box, order) {
+        var note = el("div", "track-note", "Runner updates for " + (order.customerName || "the customer") + ". Keep them informed in Messages as the delivery progresses.");
+        box.appendChild(note);
+        function action(label, fn) {
+          var button = el("button", "checkout-btn", label);
+          button.type = "button";
+          button.addEventListener("click", function () { fn(); render(); });
+          box.appendChild(button);
+        }
+        if (Orders.isGate(order)) {
+          if (order.status === "accepted") action("Head to the AUP Main Gate", Orders.advance);
+          else if (order.status === "waiting_food") action("Food has arrived at the Main Gate", Orders.advance);
+          else if (order.status === "gate_pickup" && !order.pickupPhotos) action("Send pick-up proof", Orders.sendGatePickupPhoto);
+          else if (order.status === "gate_pickup") action("Head to drop-off", Orders.advance);
+          else if (order.status === "on_the_way") action("Arrived at drop-off", Orders.advance);
+        } else if (Orders.isGazebo(order)) {
+          if (order.status === "accepted") action("I'm at the Gazebo", Orders.advance);
+          else if (order.status === "picking_up" && !order.pickupPhotos) action("Send pick-up proof photos", Orders.sendPickupPhotos);
+          else if (order.status === "picking_up") action("Head to drop-off", Orders.advance);
+          else if (order.status === "on_the_way") action("Arrived at drop-off", Orders.advance);
+        } else if (order.status === "accepted") action("I've arrived at pick-up", Orders.advance);
+        else if (order.status === "choosing") {
+          if (!order.photosSent) action("Share available items in Messages", Orders.sendPhotos);
+          else if (!order.confirmAsked) action("Ask customer to confirm items", Orders.askConfirmation);
+          else if (!order.itemsConfirmed) box.appendChild(el("div", "track-note", "Waiting for the customer to confirm items in Messages."));
+          else action("Start shopping", Orders.advance);
+        } else if (order.status === "buying") {
+          if (order.overBudget && order.overBudget.status === "pending") box.appendChild(el("div", "track-note", "Waiting for the customer's reply in Messages."));
+          else {
+            if (!order.inQueue) action("Let customer know I'm in the queue", Orders.notifyQueue);
+            action("Request ₱20 more in Messages", function () { Orders.requestOverBudget(20); });
+            action("Send receipt", Orders.advance);
+          }
+        } else if (order.status === "receipt") action("Head to drop-off", Orders.advance);
+        else if (order.status === "on_the_way") action("I've arrived", Orders.advance);
+        else if (order.status === "arrived") action(order.paymentMethod === "online" ? "Confirm payment received" : "Confirm cash received", function () { Orders.confirm("runner"); });
+        var messages = el("a", "checkout-btn as-link", "Message customer");
+        messages.href = "messages.html";
+        box.appendChild(messages);
+      }
 
       // Where the runner sits on the prototype map for each step, plus the
       // sample caption. PLACEHOLDER positions/ETAs, not real GPS.
@@ -671,9 +716,10 @@
 
       function renderSearching(order) {
         var text = Orders.cardText(order);
-        document.getElementById("search-title").textContent = text.title;
-        document.getElementById("search-sub").textContent = text.sub;
+        document.getElementById("search-title").textContent = runnerSide() ? "Request is waiting for a runner" : text.title;
+        document.getElementById("search-sub").textContent = runnerSide() ? "Go online on Home to accept the Cafeteria demo request." : text.sub;
         var btn = document.getElementById("search-cancel");
+        btn.hidden = runnerSide();
         btn.textContent = cancelArmed ? "Tap again to cancel" : "Cancel order";
       }
 
@@ -692,6 +738,7 @@
           order.dropoff || "Drop-off";
         var caption = document.getElementById("map-caption");
         caption.textContent = name + " " + step.caption;
+        if (runnerSide()) caption.textContent = "You " + step.caption;
         caption.appendChild(el("span", "", step.eta));
 
         // Prompt
@@ -965,6 +1012,13 @@
         box.innerHTML = "";
         var name = Orders.runnerFirstName(order);
 
+        var profile = CampusRunnersSession.getProfile();
+        var currentRunner = profile.fullName || CampusRunnersSession.getFirstName() || "Campus Runner";
+        if (runnerSide() && order.runner && order.runner.name === currentRunner) {
+          renderRunnerActions(box, order);
+          return;
+        }
+
         if (order.status === "accepted" || order.status === "choosing") {
           if (!cancelPanelOpen) {
             var open = el("button", "outline-btn danger", "Cancel order");
@@ -1106,6 +1160,8 @@
 
       function render() {
         var order = Orders.get();
+        var greeting = document.querySelector("#screen-track .home-greeting");
+        greeting.textContent = runnerSide() ? "Runner delivery" : "Track your order";
 
         if (!order) {
           cancelPanelOpen = false;

@@ -10,7 +10,12 @@
     <div class="phone-frame">
       <!-- Home screen -->
       <div class="screen active home-screen has-bottom-nav" id="screen-home">
-        <div class="screen-scroll">
+        <div class="screen-scroll" id="customer-home-view">
+          <button class="home-mode-switch" id="switch-to-runner" type="button">
+            <span class="mode-switch-icon">🏃</span>
+            <span>Switch to Runner</span>
+            <span class="mode-switch-chevron">›</span>
+          </button>
           <div class="home-greeting" id="home-greeting">
             Hi there! Need a hand with something?
           </div>
@@ -56,6 +61,26 @@
               <div class="home-card-chevron">&#8250;</div>
             </button>
           </div>
+        </div>
+
+        <div class="screen-scroll runner-home-view" id="runner-home-view" hidden>
+          <button class="home-mode-switch runner-mode-back" id="switch-to-customer" type="button">
+            <span class="mode-switch-icon">←</span>
+            <span>Switch to Customer</span>
+            <span class="mode-switch-chevron">›</span>
+          </button>
+          <div class="home-greeting">Runner Home</div>
+          <p class="runner-home-intro">Go online when you're ready to accept a campus errand.</p>
+
+          <section class="runner-online-card" aria-label="Runner availability">
+            <div class="runner-online-copy">
+              <div class="runner-online-title" id="runner-online-title">You're offline</div>
+              <div class="runner-online-hint" id="runner-online-hint">Go online to see available requests.</div>
+            </div>
+            <button class="runner-online-toggle" id="runner-online-toggle" type="button" aria-pressed="false">Go online</button>
+          </section>
+
+          <div id="runner-board" aria-live="polite"></div>
         </div>
 
         <!-- Floating order card: shows while an order is in progress -->
@@ -127,7 +152,7 @@
             <div class="nav-label">Messages</div>
           </a>
 
-          <div class="nav-item">
+          <a class="nav-item" href="profile.html">
             <div class="nav-icon">
               <svg
                 viewBox="0 0 24 24"
@@ -140,7 +165,7 @@
               </svg>
             </div>
             <div class="nav-label">Profile</div>
-          </div>
+          </a>
         </div>
       </div>
     </div>
@@ -254,6 +279,208 @@
         renderOrderCard(false);
       }, 1000); // catches the search timeout
       renderOrderCard(true);
+
+      // ---- Runner home and availability ----
+      var runnerOnline = localStorage.getItem("cr_runner_online") === "1";
+      var customerHome = document.getElementById("customer-home-view");
+      var runnerHome = document.getElementById("runner-home-view");
+      var phoneFrame = document.querySelector(".phone-frame");
+      var bottomNav = document.querySelector(".bottom-nav");
+      var runnerBoard = document.getElementById("runner-board");
+
+      function runnerName() {
+        var profile = CampusRunnersSession.getProfile();
+        return profile.fullName || CampusRunnersSession.getFirstName() || "Campus Runner";
+      }
+
+      function setHomeMode(mode) {
+        var isRunner = mode === "runner";
+        customerHome.hidden = isRunner;
+        runnerHome.hidden = !isRunner;
+        bottomNav.hidden = false;
+        phoneFrame.classList.toggle("runner-mode", isRunner);
+        try { localStorage.setItem("cr_home_mode", isRunner ? "runner" : "customer"); } catch (e) {}
+        window.dispatchEvent(new Event("cr:rolechange"));
+        if (isRunner) renderRunnerHome();
+      }
+
+      function runnerNode(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function runnerRow(card, label, value) {
+        var row = runnerNode("div", "runner-detail-row");
+        row.appendChild(runnerNode("span", "runner-detail-label", label));
+        row.appendChild(runnerNode("span", "runner-detail-value", value || "—"));
+        card.appendChild(row);
+      }
+
+      function runnerButton(container, label, handler, secondary) {
+        var button = runnerNode("button", "runner-action-button" + (secondary ? " secondary" : ""), label);
+        button.type = "button";
+        button.addEventListener("click", function () {
+          handler();
+          renderRunnerHome();
+        });
+        container.appendChild(button);
+      }
+
+      function runnerMessageLink(container) {
+        var link = runnerNode("a", "runner-message-link", "Open Messages");
+        link.href = "messages.html";
+        container.appendChild(link);
+      }
+
+      function renderRunnerHome() {
+        if (!runnerHome || runnerHome.hidden) return;
+        var title = document.getElementById("runner-online-title");
+        var hint = document.getElementById("runner-online-hint");
+        var toggle = document.getElementById("runner-online-toggle");
+        title.textContent = runnerOnline ? "You're online" : "You're offline";
+        hint.textContent = runnerOnline
+          ? "You're ready to receive campus requests."
+          : "Go online to see available requests.";
+        toggle.textContent = runnerOnline ? "Go offline" : "Go online";
+        toggle.classList.toggle("online", runnerOnline);
+        toggle.setAttribute("aria-pressed", runnerOnline ? "true" : "false");
+        runnerBoard.innerHTML = "";
+
+        var order = CampusRunnersOrder.get();
+        var mine = !!(order && order.runner && order.runner.name === runnerName());
+        if (mine && order.status !== "searching") {
+          renderRunnerTask(order);
+          return;
+        }
+        if (!runnerOnline) {
+          runnerBoard.appendChild(runnerNode("div", "runner-empty-card", "When you go online, available delivery and errand requests will appear here."));
+          return;
+        }
+        var demoRequest = !order;
+        if (order && (order.status !== "searching" || order.runner)) {
+          runnerBoard.appendChild(runnerNode("div", "runner-empty-card", "A request is already being handled. New requests will appear here when it's complete."));
+          return;
+        }
+
+        var post = runnerNode("section", "runner-post-card");
+        post.appendChild(runnerNode("div", "runner-post-eyebrow", demoRequest ? "DEMO REQUEST · CAFETERIA" : "NEW REQUEST"));
+        post.appendChild(runnerNode("div", "runner-post-title", demoRequest ? "Cafeteria run" : CampusRunnersOrder.place(order).label));
+        runnerRow(post, "Pick-up", demoRequest ? "🍛 Cafeteria" : (order.pickup || (CampusRunnersOrder.isGate(order) ? "AUP Main Gate" : CampusRunnersOrder.isGazebo(order) ? "Gazebo" : CampusRunnersOrder.place(order).label)));
+        runnerRow(post, "Drop-off", demoRequest ? "Library" : order.dropoff);
+        runnerRow(post, "Budget", "₱" + (demoRequest ? 150 : (order.budget || 0)));
+        runnerRow(post, "Delivery fee", "₱" + (demoRequest ? 30 : (order.deliveryFee || 0)));
+        runnerRow(post, "Payment", demoRequest ? "Cash" : (order.paymentMethod === "online" ? "GCash / Online" : "Cash"));
+        var instructions = runnerNode("div", "runner-instructions");
+        instructions.appendChild(runnerNode("div", "runner-detail-label", "Detailed instructions"));
+        instructions.appendChild(runnerNode("div", "runner-instructions-text", demoRequest
+          ? "Please pick up 2 viands and 1 rice at the cafeteria, then bring the order to the Library. Confirm the items with the customer in Messages before shopping."
+          : (order.message || "No instructions provided.")));
+        post.appendChild(instructions);
+        runnerButton(post, "Accept request", function () {
+          if (demoRequest) {
+            order = CampusRunnersOrder.create({
+              type: "cafeteria",
+              dropoff: "Library",
+              budget: 150,
+              deliveryFee: 30,
+              paymentMethod: "cash",
+              customerName: "Mia Santos",
+              message: "Please pick up 2 viands and 1 rice at the cafeteria, then bring the order to the Library. Confirm the items with the customer in Messages before shopping."
+            });
+            if (!order) {
+              showToast("Another request is already active.", { type: "error" });
+              return;
+            }
+          }
+          if (!CampusRunnersOrder.acceptRunner(runnerName())) {
+            showToast("This request is no longer available.", { type: "error" });
+          } else {
+            showToast("Request accepted. Keep the customer updated in Messages.");
+          }
+        });
+        runnerBoard.appendChild(post);
+      }
+
+      function renderRunnerTask(order) {
+        var task = runnerNode("section", "runner-post-card runner-active-task");
+        task.appendChild(runnerNode("div", "runner-post-eyebrow", "YOUR ACTIVE DELIVERY"));
+        task.appendChild(runnerNode("div", "runner-post-title", CampusRunnersOrder.place(order).label));
+        runnerRow(task, "Status", CampusRunnersOrder.STATUS_LABELS[order.status]);
+        runnerRow(task, "Pick-up", order.pickup || (CampusRunnersOrder.isGate(order) ? "AUP Main Gate" : CampusRunnersOrder.isGazebo(order) ? "Gazebo" : CampusRunnersOrder.place(order).label));
+        runnerRow(task, "Drop-off", order.dropoff);
+        runnerRow(task, "Budget", "₱" + (order.budget || 0));
+        runnerRow(task, "Delivery fee", "₱" + (order.deliveryFee || 0));
+        runnerRow(task, "Payment", order.paymentMethod === "online" ? "GCash / Online" : "Cash");
+        var instructions = runnerNode("div", "runner-instructions");
+        instructions.appendChild(runnerNode("div", "runner-detail-label", "Detailed instructions"));
+        instructions.appendChild(runnerNode("div", "runner-instructions-text", order.message || "No instructions provided."));
+        task.appendChild(instructions);
+
+        var actions = runnerNode("div", "runner-task-actions");
+        var status = order.status;
+        if (CampusRunnersOrder.isGate(order)) {
+          if (status === "accepted") runnerButton(actions, order.expectedArrival === "now" ? "Food is at the Main Gate" : "Head to the AUP Main Gate", CampusRunnersOrder.advance);
+          else if (status === "waiting_food") runnerButton(actions, "Food has arrived at the Main Gate", CampusRunnersOrder.advance);
+          else if (status === "gate_pickup" && !order.pickupPhotos) runnerButton(actions, "Send pick-up proof", CampusRunnersOrder.sendGatePickupPhoto);
+          else if (status === "gate_pickup") runnerButton(actions, "Head to drop-off", CampusRunnersOrder.advance);
+          else if (status === "on_the_way") runnerButton(actions, "Arrived at drop-off", CampusRunnersOrder.advance);
+        } else if (CampusRunnersOrder.isGazebo(order)) {
+          if (status === "accepted") runnerButton(actions, "I'm at the Gazebo", CampusRunnersOrder.advance);
+          else if (status === "picking_up" && !order.pickupPhotos) runnerButton(actions, "Send pick-up proof photos", CampusRunnersOrder.sendPickupPhotos);
+          else if (status === "picking_up") runnerButton(actions, "Head to drop-off", CampusRunnersOrder.advance);
+          else if (status === "on_the_way") runnerButton(actions, "Arrived at drop-off", CampusRunnersOrder.advance);
+        } else if (status === "accepted") {
+          runnerButton(actions, "I've arrived at pick-up", CampusRunnersOrder.advance);
+        } else if (status === "choosing") {
+          if (!order.photosSent) runnerButton(actions, "Share available items in Messages", CampusRunnersOrder.sendPhotos);
+          else if (!order.confirmAsked) runnerButton(actions, "Ask customer to confirm items", CampusRunnersOrder.askConfirmation);
+          else if (!order.itemsConfirmed) {
+            actions.appendChild(runnerNode("div", "runner-waiting-note", "Waiting for the customer to confirm the items in Messages."));
+            runnerMessageLink(actions);
+          } else runnerButton(actions, "Start shopping", CampusRunnersOrder.advance);
+        } else if (status === "buying") {
+          if (order.overBudget && order.overBudget.status === "pending") {
+            actions.appendChild(runnerNode("div", "runner-waiting-note", "Waiting for the customer's reply about the extra amount."));
+            runnerMessageLink(actions);
+          } else {
+            if (!order.inQueue) runnerButton(actions, "Let customer know I'm in the queue", CampusRunnersOrder.notifyQueue, true);
+            runnerButton(actions, "Request ₱20 more in Messages", function () { CampusRunnersOrder.requestOverBudget(20); }, true);
+            runnerButton(actions, "Send receipt", CampusRunnersOrder.advance);
+          }
+        } else if (status === "receipt") {
+          runnerButton(actions, "Head to drop-off", CampusRunnersOrder.advance);
+        } else if (status === "on_the_way") {
+          runnerButton(actions, "I've arrived", CampusRunnersOrder.advance);
+        } else if (status === "arrived") {
+          actions.appendChild(runnerNode("div", "runner-waiting-note", CampusRunnersOrder.isFrontDesk(order)
+            ? "Confirm when payment is received to complete this delivery."
+            : "Confirm payment here. The customer also needs to confirm they received the delivery."));
+          runnerButton(actions, order.paymentMethod === "online" ? "Confirm payment received" : "Confirm cash received", function () { CampusRunnersOrder.confirm("runner"); });
+          if (!CampusRunnersOrder.isFrontDesk(order)) runnerMessageLink(actions);
+        }
+        task.appendChild(actions);
+        runnerBoard.appendChild(task);
+      }
+
+      document.getElementById("switch-to-runner").addEventListener("click", function () { setHomeMode("runner"); });
+      document.getElementById("switch-to-customer").addEventListener("click", function () { setHomeMode("customer"); });
+      document.getElementById("runner-online-toggle").addEventListener("click", function () {
+        runnerOnline = !runnerOnline;
+        localStorage.setItem("cr_runner_online", runnerOnline ? "1" : "0");
+        renderRunnerHome();
+      });
+      CampusRunnersOrder.subscribe(renderRunnerHome);
+      window.addEventListener("storage", function (event) {
+        if (event.key === "cr_runner_online") {
+          runnerOnline = event.newValue === "1";
+          renderRunnerHome();
+        }
+      });
+      try {
+        if (localStorage.getItem("cr_home_mode") === "runner") setHomeMode("runner");
+      } catch (e) {}
 
       CampusRunnersDemo.mount();
     </script>

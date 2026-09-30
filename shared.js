@@ -80,6 +80,28 @@ var CampusRunnersSession = {
   getFirstName: function () {
     return localStorage.getItem("cr_first_name");
   },
+  setProfile: function (fullName, email) {
+    localStorage.setItem("cr_full_name", fullName);
+    localStorage.setItem("cr_email", email);
+  },
+  getProfile: function () {
+    return {
+      fullName: localStorage.getItem("cr_full_name") || this.getFirstName() || "",
+      email: localStorage.getItem("cr_email") || "",
+    };
+  },
+  logOut: function () {
+    localStorage.removeItem("cr_first_name");
+    localStorage.removeItem("cr_runner_online");
+    localStorage.setItem("cr_home_mode", "customer");
+  },
+  deleteAccount: function () {
+    localStorage.removeItem("cr_first_name");
+    localStorage.removeItem("cr_full_name");
+    localStorage.removeItem("cr_email");
+    localStorage.removeItem("cr_runner_online");
+    localStorage.setItem("cr_home_mode", "customer");
+  },
 };
 
 // ---- Order lifecycle (customer-side prototype) ----
@@ -416,8 +438,10 @@ var CampusRunnersOrder = (function () {
     if (order.status === "delivered" && order.paidTotal != null) {
       return { prefix: "Paid ", amount: order.paidTotal };
     }
-    if (isGazebo(order) || isGate(order))
+    if ((isGazebo(order) || isGate(order)) && !(order.budget > 0))
       return { prefix: "Total ", amount: order.total || 0 };
+    if (isGazebo(order) || isGate(order))
+      return { prefix: "Up to ", amount: order.total || 0 };
     return { prefix: "Up to ", amount: order.total || 0 };
   }
 
@@ -436,10 +460,13 @@ var CampusRunnersOrder = (function () {
       searchStartedAt: now,
       status: "searching",
       dropoff: details.dropoff || "",
+      pickup: details.pickup || (PLACES[details.type] ? PLACES[details.type].emoji + " " + PLACES[details.type].label : ""),
       budget: budget,
       deliveryFee: fee,
       total: budget + fee, // the most the customer could pay
       message: details.message || "",
+      customerName: details.customerName || "Campus Customer",
+      paymentMethod: details.paymentMethod === "online" ? "online" : "cash",
       summary: truncate(details.message, 48) || "Budget ₱" + budget,
       runner: null,
       customerConfirmed: false,
@@ -455,6 +482,7 @@ var CampusRunnersOrder = (function () {
       receiptTotal: null,
       payTotal: null,
     };
+    if (order.message) pushMessage(order, { from: "you", type: "text", text: order.message });
     save(order);
     return order;
   }
@@ -463,6 +491,36 @@ var CampusRunnersOrder = (function () {
   // just in the form), and the fee and totals are recalculated from the
   // config. Returns null if the details are invalid.
   function createGazebo(details) {
+    // New customer form uses the shared budget + instructions flow. Keep the
+    // legacy structured shape accepted for existing demo/sample orders.
+    if (details && details.budget != null && !details.parcels) {
+      var simpleDropoff = matchGazeboDropoff(details.dropoff);
+      if (!simpleDropoff) return null;
+      var simpleBudget = Math.floor(Number(details.budget));
+      if (!(simpleBudget >= 1)) return null;
+      var simpleFee = 35;
+      var simpleNow = Date.now();
+      var simpleMessage = String(details.message || "").trim().slice(0, 1000);
+      var simpleOrder = {
+        id: "CR-" + simpleNow.toString(36).toUpperCase(), type: "gazebo",
+        createdAt: simpleNow, searchStartedAt: simpleNow, status: "searching",
+        pickup: "📦 Gazebo", dropoff: simpleDropoff, budget: simpleBudget,
+        deliveryFee: simpleFee, total: simpleBudget + simpleFee,
+        message: simpleMessage, summary: "Parcel pickup · Budget ₱" + simpleBudget,
+        runner: null, customerConfirmed: false, runnerConfirmed: false,
+        chat: [], inQueue: false, photosSent: false, confirmAsked: false,
+        itemsConfirmed: false, overBudget: null, extraApproved: 0,
+        receiptTotal: null, payTotal: simpleBudget + simpleFee,
+        parcels: [{ name: "See detailed instructions", courier: "Campus pickup", isCod: false, codAmount: 0 }],
+        parcelSize: "medium", riderUntil: "23:59",
+        handover: GAZEBO.frontDeskDropoffs.indexOf(simpleDropoff) !== -1 && details.handover === "front_desk" ? "front_desk" : "meet",
+        paymentMethod: details.paymentMethod === "online" ? "online" : "cash",
+        codTotal: 0, pickupPhotos: false, deliveryPhoto: false,
+      };
+      if (simpleMessage) pushMessage(simpleOrder, { from: "you", type: "text", text: simpleMessage });
+      save(simpleOrder);
+      return simpleOrder;
+    }
     var size = GAZEBO.sizes[details.parcelSize] ? details.parcelSize : "";
     var dropoff = matchGazeboDropoff(details.dropoff);
     var riderUntil =
@@ -554,6 +612,34 @@ var CampusRunnersOrder = (function () {
 
   // Creates one food-delivery pickup at the AUP Main Gate for one customer.
   function createGate(details) {
+    // New customer form supplies a budget and freeform instructions. Populate
+    // legacy runner-flow metadata with neutral values so the demo controls
+    // and gate pickup status sequence continue to work unchanged.
+    if (details && details.budget != null && !details.foodName) {
+      var simpleGateDropoff = matchGateDropoff(details.dropoff);
+      var simpleGateBudget = Math.floor(Number(details.budget));
+      if (!simpleGateDropoff || simpleGateDropoff === GATE.pickup || !(simpleGateBudget >= 1)) return null;
+      var simpleGateFee = gateDeliveryFee(simpleGateDropoff, details.feeAt);
+      var simpleGateNow = Date.now();
+      var simpleGateOrder = {
+        id: "CR-" + simpleGateNow.toString(36).toUpperCase(), type: "gate",
+        createdAt: simpleGateNow, searchStartedAt: simpleGateNow, status: "searching",
+        pickup: GATE.pickup, dropoff: simpleGateDropoff, budget: simpleGateBudget,
+        deliveryFee: simpleGateFee, total: simpleGateBudget + simpleGateFee,
+        payTotal: simpleGateBudget + simpleGateFee,
+        foodName: "See detailed instructions", foodService: "Delivery order",
+        foodPaymentStatus: "paid", codAmount: 0, codTotal: 0,
+        expectedArrival: "minutes30", handover: "meet",
+        paymentMethod: details.paymentMethod === "online" ? "online" : "cash",
+        message: String(details.message || "").trim().slice(0, 1000),
+        summary: "Gate pickup · Budget ₱" + simpleGateBudget,
+        runner: null, customerConfirmed: false, runnerConfirmed: false,
+        chat: [], inQueue: false, pickupPhotos: false, deliveryPhoto: false,
+      };
+      if (simpleGateOrder.message) pushMessage(simpleGateOrder, { from: "you", type: "text", text: simpleGateOrder.message });
+      save(simpleGateOrder);
+      return simpleGateOrder;
+    }
     var dropoff = matchGateDropoff(details.dropoff);
     var name = String(details.foodName || "").trim().slice(0, 60);
     var service = String(details.foodService || "").trim().slice(0, 50);
@@ -864,13 +950,15 @@ var CampusRunnersOrder = (function () {
     }
   }
 
-  function setStatus(key) {
+  function setStatus(key, acceptedRunnerName) {
     var order = get();
     if (!order) return;
     order.status = key;
     order.inQueue = false; // a new step starts, so the queue notice resets
     if (key === "accepted" && !order.runner) {
-      order.runner = DEMO_RUNNER;
+      order.runner = {
+        name: String(acceptedRunnerName || DEMO_RUNNER.name).trim().slice(0, 80),
+      };
       order.acceptedAt = Date.now();
     }
     var name = runnerFirstName(order);
@@ -922,6 +1010,7 @@ var CampusRunnersOrder = (function () {
         receiptTotal: order.receiptTotal,
         fee: order.deliveryFee || 0,
         total: order.payTotal,
+        paymentMethod: order.paymentMethod,
         text: "All done! Here's your receipt.",
       });
     } else if (key === "on_the_way") {
@@ -1059,6 +1148,23 @@ var CampusRunnersOrder = (function () {
     });
     order.pickupPhotos = true;
     save(order);
+  }
+
+  function acceptRunner(name) {
+    var order = get();
+    if (!order || order.status !== "searching" || order.runner) return false;
+    var runnerName = String(name || DEMO_RUNNER.name).trim().slice(0, 80);
+    setStatus("accepted", runnerName || DEMO_RUNNER.name);
+    return true;
+  }
+
+  function sendRunnerMessage(text) {
+    var order = get();
+    text = (text || "").trim();
+    if (!order || !order.runner || !text) return false;
+    pushMessage(order, { from: "runner", type: "text", text: text.slice(0, 500) });
+    save(order);
+    return true;
   }
 
   // The gate pickup photo is proof only; the customer never approves it.
@@ -1475,8 +1581,10 @@ var CampusRunnersOrder = (function () {
     skipRating: skipRating,
     create: create,
     setStatus: setStatus,
+    acceptRunner: acceptRunner,
     advance: advance,
     sendCustomerMessage: sendCustomerMessage,
+    sendRunnerMessage: sendRunnerMessage,
     notifyQueue: notifyQueue,
     sendPhotos: sendPhotos,
     askConfirmation: askConfirmation,
@@ -1507,7 +1615,14 @@ var CampusRunnersDemo = (function () {
     var toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "demo-toggle";
-    toggle.textContent = "🛠 Demo";
+    function runnerSide() {
+      try { return localStorage.getItem("cr_home_mode") === "runner"; }
+      catch (e) { return false; }
+    }
+    function updateToggleLabel() {
+      toggle.textContent = runnerSide() ? "👤 Demo customer" : "🛠 Demo";
+    }
+    updateToggleLabel();
 
     var panel = document.createElement("div");
     panel.className = "demo-panel";
@@ -1519,6 +1634,10 @@ var CampusRunnersDemo = (function () {
 
     host.appendChild(toggle);
     host.appendChild(panel);
+    window.addEventListener("cr:rolechange", function () {
+      updateToggleLabel();
+      render();
+    });
 
     function addButton(label, handler, ghost) {
       var b = document.createElement("button");
@@ -1545,7 +1664,8 @@ var CampusRunnersDemo = (function () {
 
       var title = document.createElement("div");
       title.className = "demo-title";
-      title.textContent = "Demo runner";
+      var customerSide = runnerSide();
+      title.textContent = customerSide ? "Demo customer" : "Demo runner";
       panel.appendChild(title);
 
       var order = Orders.get();
@@ -1555,6 +1675,24 @@ var CampusRunnersDemo = (function () {
       addNote(
         order ? "Now: " + Orders.STATUS_LABELS[status] : "No active order.",
       );
+
+      if (customerSide) {
+        if (!order) {
+          addNote("Go online on Runner Home to see the Cafeteria demo request.");
+        } else if (status === "choosing" && order.confirmAsked && !order.itemsConfirmed) {
+          addNote("Customer can confirm the selected items after reviewing the runner's message.");
+          addButton("Customer: Looks good", Orders.confirmItems);
+        } else if (order.overBudget && order.overBudget.status === "pending") {
+          addButton("Customer: approve extra amount", function () { Orders.respondOverBudget(true); });
+          addButton("Customer: decline extra amount", function () { Orders.respondOverBudget(false); }, true);
+        } else if (status === "arrived" && !order.customerConfirmed) {
+          addButton("Customer: I received it", function () { Orders.confirm("customer"); });
+        } else {
+          addNote("Customer updates and replies will appear here when they are needed.");
+        }
+        addButton("Reset demo", Orders.reset, true);
+        return;
+      }
 
       if (!order) {
         addButton("Create a sample order", function () {
@@ -1724,7 +1862,7 @@ var CampusRunnersDemo = (function () {
           Orders.advance,
         );
       } else if (status === "arrived") {
-        var online = Orders.isGazebo(order) && order.paymentMethod === "online";
+        var online = order.paymentMethod === "online";
         addButton(
           online ? "Runner: payment received" : "Runner: cash received",
           function () {
